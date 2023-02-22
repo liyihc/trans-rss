@@ -1,9 +1,10 @@
 
+from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
 from pydantic import BaseModel
 
-from .config import sql_path
+from .config import sql_path, config
 
 
 class Subscribe(BaseModel):
@@ -11,14 +12,15 @@ class Subscribe(BaseModel):
     url: str
 
 
-class Sql:
-    def __init__(self) -> None:
-        self.open_or_build()
+class _Sql:
+    def __init__(self, conn:sqlite3.Connection, exist:bool) -> None:
+        conn.row_factory = sqlite3.Row
+        self.conn = conn
+        if not exist:
+            self.build()
 
-    def open_or_build(self):
-        if sql_path.exists():
-            return
-        with sqlite3.Connection(sql_path) as conn:
+    def build(self):
+        with self.conn as conn:
             conn.execute("""
 CREATE TABLE infos(
     key VARCHAR(20),
@@ -27,30 +29,40 @@ CREATE TABLE infos(
 CREATE TABLE subscribe(
     name VARCHAR(20),
     url TEXT) """)
+            conn.execute("""
+CREATE TABLE downloaded(
+    url VARCHAR(256) PRIMARY KEY,
+    dt datetime) """)
 
             conn.execute('INSERT INTO infos VALUES("version", "0.1.0")')
-
-    def execute(self, sql_statement: str, param):
-        with sqlite3.Connection(sql_path) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute(sql_statement, param)
             conn.commit()
 
-    def fetchall(self, sql_statement: str):
-        with sqlite3.Connection(sql_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(sql_statement)
-            return cursor.fetchall()
-
     def subscribe(self, name: str, url: str):
-        self.execute("REPLACE INTO subscribe VALUES(?,?)", (name, url))
+        self.conn.execute("REPLACE INTO subscribe VALUES(?,?)", (name, url))
+        self.conn.commit()
 
     def subscribe_del(self, name: str):
-        self.execute("DELETE FROM subscribe WHERE name = ?", (name, ))
+        self.conn.execute("DELETE FROM subscribe WHERE name = ?", (name, ))
+        self.conn.commit()
 
     def subscribe_get(self):
-        for ret in self.fetchall("SELECT * FROM subscribe"):
+        cursor = self.conn.execute("SELECT * FROM subscribe")
+        for ret in cursor.fetchall():
             yield Subscribe(**ret)
 
+    def download_add(self, url: str):
+        self.conn.execute(
+            "INSERT INTO downloaded VALUES(?,?)",
+            (url, str(config.now().replace(microsecond=0))))
+        self.conn.commit()
 
-sql = Sql()
+    def download_exist(self, url: str):
+        cursor = self.conn.execute("SELECT * FROM downloaded WHERE url = ?", (url, ))
+        return cursor.fetchone() is not None
+
+
+@contextmanager
+def Connection():
+    exist = sql_path.exists()
+    with sqlite3.Connection(sql_path) as conn:
+        yield _Sql(conn, exist)
