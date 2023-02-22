@@ -1,0 +1,4 @@
+/configs
+*.xml
+__pycache__
+/.vscode
