@@ -127,6 +127,8 @@ async def update():
 @app.on_event("startup")
 @repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)
 async def repeat_update():
-    print("routine task")
     if not tmp_stop:
+        print("routine task start")
         await update()
+    else:
+        print("routine task skip")
