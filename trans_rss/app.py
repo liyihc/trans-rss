@@ -74,10 +74,12 @@ async def update():
     with Connection() as conn:
         async with httpx.AsyncClient() as client:
             for subscribe in conn.subscribe_get():
+                print("subscribe", subscribe.name, subscribe.url)
                 page = 1
                 retry = 0
                 while True:
                     req = await client.get(f"{subscribe.url}&page={page}")
+                    print(subscribe.name, f"page:{page}")
                     match req.status_code:
                         case 500:  # page end
                             retry = 0
@@ -93,9 +95,11 @@ async def update():
                                 title = title.group(1)
                                 torrent = torrent.group()
                                 cnt += 1
+                                print("find", subscribe.name, title, torrent)
                                 if not conn.download_exist(torrent):
                                     ret.append(torrent)
-                                    print("download", subscribe.name, title, torrent)
+                                    print("download", subscribe.name,
+                                          title, torrent)
                                     for webhook in config.webhooks:
                                         resp = await client.post(webhook, json=webhooks.feishu(
                                             subscribe.name, title, torrent
@@ -104,8 +108,11 @@ async def update():
                                         # TODO log when failed
 
                                     # TODO log when add
-                                    t = trans_client.add_torrent(torrent, download_dir=str(config.base_folder / subscribe.name))
+                                    t = trans_client.add_torrent(torrent, download_dir=str(
+                                        config.base_folder / subscribe.name))
                                     conn.download_add(torrent)
+                                else:
+                                    print("skip", subscribe.name, title, torrent)
 
                             if not cnt:
                                 break
