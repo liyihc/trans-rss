@@ -104,7 +104,7 @@ async def update():
                                         # TODO log when failed
 
                                     # TODO log when add
-                                    trans_client.add_torrent(torrent, download_dir=str(config.base_folder / subscribe.name))
+                                    t = trans_client.add_torrent(torrent, download_dir=str(config.base_folder / subscribe.name))
                                     conn.download_add(torrent)
 
                             if not cnt:
@@ -120,5 +120,6 @@ async def update():
 @app.on_event("startup")
 @repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)
 async def repeat_update():
+    print("routine task")
     if not tmp_stop:
         await update()
