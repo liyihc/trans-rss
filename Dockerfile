@@ -10,5 +10,5 @@ RUN pip install --upgrade --no-cache-dir \
 
 ADD ./trans_rss /app/trans_rss
 
-CMD ["uvicorn", "trans_rss:app", "--host 0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "trans_rss:app", "--host", "0.0.0.0", "--port", "80"]
 

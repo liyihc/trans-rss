@@ -97,12 +97,14 @@ async def update():
                                     ret.append(torrent)
                                     print("download", subscribe.name, title, torrent)
                                     for webhook in config.webhooks:
-                                        ret = await client.post(webhook, json=webhooks.feishu(
+                                        resp = await client.post(webhook, json=webhooks.feishu(
                                             subscribe.name, title, torrent
                                         ))
-                                        print(ret.json())
+                                        print(webhook, resp.status_code)
+                                        # TODO log when failed
 
-                                    trans_client.add_torrent(torrent)
+                                    # TODO log when add
+                                    trans_client.add_torrent(torrent, download_dir=str(config.base_folder / subscribe.name))
                                     conn.download_add(torrent)
 
                             if not cnt:

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
-from pydantic import BaseModel, DirectoryPath
+from pydantic import BaseModel
 from typing import List, Optional
 
 import transmission_rpc
@@ -19,7 +19,7 @@ class Config(BaseModel):
     subscribe_minutes: int = 60
     webhooks: List[str] = []
     timezone: int = 8
-    base_folder: DirectoryPath = "/downloads/complete"
+    base_folder: Path = Path("/downloads/complete")
 
     def trans_client(self):
         return transmission_rpc.Client(
