@@ -10,7 +10,7 @@ from . import webhooks
 
 app = FastAPI(title="Trans RSS", version=version)
 
-tmp_stop = True
+tmp_stop = False
 
 
 @app.get("/")
