@@ -1,13 +1,15 @@
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
-from pydantic import BaseModel
+from pydantic import BaseModel, DirectoryPath
 from typing import List, Optional
 
 import transmission_rpc
 
 
 version = (Path(__file__).parent / "version").read_text()
+
+
 class Config(BaseModel):
     transmission_host: str = ""
     protocol: str = "http"
@@ -16,7 +18,8 @@ class Config(BaseModel):
     password: Optional[str] = None
     subscribe_minutes: int = 60
     webhooks: List[str] = []
-    timezone:int = 8
+    timezone: int = 8
+    base_folder: DirectoryPath = "/downloads/complete"
 
     def trans_client(self):
         return transmission_rpc.Client(
@@ -29,6 +32,8 @@ class Config(BaseModel):
     def now(self):
         return datetime.now(timezone(timedelta(hours=self.timezone))).replace(tzinfo=None)
 
+    def get_seconds(self):
+        return self.subscribe_minutes * 60
 
 
 config_dir = Path(__file__).parents[1] / "configs"
@@ -43,3 +48,4 @@ else:
     config = Config()
 config_path.write_text(config.json(indent=4))
 sql_path = config_dir / "data.sqlite3"
+

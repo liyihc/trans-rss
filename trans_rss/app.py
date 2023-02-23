@@ -1,16 +1,11 @@
-from pathlib import Path
 import re
-import sqlite3
-from tkinter import W
 from typing import List
 from fastapi import FastAPI
-import fastapi
 import httpx
-import transmission_rpc
-import xml
 from fastapi_utils.tasks import repeat_every
 from .config import version, config
 from .sql import Subscribe, Connection
+from . import webhooks
 
 
 app = FastAPI(title="Trans RSS", version=version)
@@ -68,7 +63,8 @@ async def stop():
     global tmp_stop
     tmp_stop = True
 
-pattern = re.compile(r'http[^"]*\.torrent')
+title_pattern = re.compile(r'<title>([^<>]*)</title>')
+torrent_pattern = re.compile(r'http[^"]*\.torrent')
 
 
 @app.post("/api/manual_update")
@@ -89,21 +85,25 @@ async def update():
                         case 200:
                             retry = 0
                             cnt = 0
-                            for torrent in pattern.finditer(req.text):
+                            it = title_pattern.finditer(req.text)
+                            next(it)
+                            for title, torrent in zip(
+                                    it,
+                                    torrent_pattern.finditer(req.text)):
+                                title = title.group(1)
+                                torrent = torrent.group()
                                 cnt += 1
-                                url = torrent.group()
-                                if not conn.download_exist(url):
-                                    ret.append(url)
-                                    print("download", subscribe.name, url)
+                                if not conn.download_exist(torrent):
+                                    ret.append(torrent)
+                                    print("download", subscribe.name, title, torrent)
                                     for webhook in config.webhooks:
-                                        await client.post(webhook, json={
-                                            "msg_type": "text",
-                                            "content": {
-                                                "text": f"download {subscribe.name} {url}"}
-                                        })
+                                        ret = await client.post(webhook, json=webhooks.feishu(
+                                            subscribe.name, title, torrent
+                                        ))
+                                        print(ret.json())
 
-                                    trans_client.add_torrent(url)
-                                    conn.download_add(url)
+                                    trans_client.add_torrent(torrent)
+                                    conn.download_add(torrent)
 
                             if not cnt:
                                 break

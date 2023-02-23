@@ -23,11 +23,11 @@ class _Sql:
         with self.conn as conn:
             conn.execute("""
 CREATE TABLE infos(
-    key VARCHAR(20),
+    key VARCHAR(20) PRIMARY KEY,
     value TEXT) """)
             conn.execute("""
 CREATE TABLE subscribe(
-    name VARCHAR(20),
+    name VARCHAR(20) PRIMARY KEY,
     url TEXT) """)
             conn.execute("""
 CREATE TABLE downloaded(
