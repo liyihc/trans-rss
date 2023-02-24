@@ -59,8 +59,8 @@ async def subscribe():
         return conn.subscribe_get()
 
 
-@app.post("/api/has_download")
-async def has_download(torrent: str):
+@app.post("/api/mark_download")
+async def mark_download(torrent: str):
     with Connection() as conn:
         return conn.download_add(torrent)
 
