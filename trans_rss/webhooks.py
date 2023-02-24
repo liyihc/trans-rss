@@ -14,7 +14,7 @@ def feishu(name: str, title: str, torrent: str):
                         [
                             {
                                 "tag": "text",
-                                "text": "种子地址"
+                                "text": "种子地址: "
                             },
                             {
                                 "tag": "a",
