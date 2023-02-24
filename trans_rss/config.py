@@ -9,6 +9,9 @@ import transmission_rpc
 
 version = (Path(__file__).parent / "version").read_text()
 
+class Debug(BaseModel):
+    without_transmission: bool = False
+
 
 class Config(BaseModel):
     transmission_host: str = ""
@@ -20,6 +23,7 @@ class Config(BaseModel):
     webhooks: List[str] = []
     timezone: int = 8
     base_folder: Path = Path("/downloads/complete")
+    debug: Debug = Debug()
 
     def trans_client(self):
         return transmission_rpc.Client(
@@ -48,4 +52,3 @@ else:
     config = Config()
 config_path.write_text(config.json(indent=4))
 sql_path = config_dir / "data.sqlite3"
-

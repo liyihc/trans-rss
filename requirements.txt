@@ -1,5 +1,6 @@
 fastapi==0.92.0
 fastapi-utils==0.2.1
-httpx==0.23.3
 transmission-rpc==3.4.0
+pywebio==1.7.1
 uvicorn==0.20.0
+websockets==10.4
