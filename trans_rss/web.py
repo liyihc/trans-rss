@@ -1,14 +1,18 @@
 from functools import partial
-from time import sleep
 from traceback import print_exc
 from pywebio import *
 from pywebio.platform.fastapi import webio_routes
 
-from . import actions
+from . import actions, config
 from .sql import Connection, Subscribe
 
 async def update():
-    return await actions.update()
+    cnt = 0
+    async for name, title in actions.update():
+        cnt += 1
+        output.popup(f"订阅 {name} 添加新下载项", title)
+    if cnt == 0:
+        output.popup(f"未找到有更新的订阅")
 
 
 def common():
@@ -29,7 +33,7 @@ def subscribe_del(name: str):
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
         conn.subscribe(sub.name, sub.url)
-    await actions.update()
+    await update()
     session.go_app("sub", False)
 
 
@@ -42,12 +46,13 @@ async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
         conn.download_add(url)
         conn.subscribe(sub.name, sub.url)
-    await actions.update()
+    await update()
     session.go_app("sub", False)
 
 
 async def subscribe():
     try:
+        session.set_env(title=f"Trans RSS {config.version}")
         with Connection() as conn:
             with output.use_scope("common"):
                 common()
@@ -95,14 +100,10 @@ async def subscribe():
                         )
                 output.put_button("全部订阅", onclick=sub_all)
     except Exception as e:
-        if not isinstance(e, exceptions.SessionClosedException):
+        if not isinstance(e, exceptions.SessionException):
             print(str(e))
             print_exc()
         raise
-
-
-async def tmp():
-    await common()
 
 routes = webio_routes(
     {

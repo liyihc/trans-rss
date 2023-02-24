@@ -53,7 +53,6 @@ async def broadcast(name: str, title: str, torrent: str):
 
 
 async def update():
-    ret = []
     if not config.debug.without_transmission:
         trans_client = config.trans_client()
     with Connection() as conn:
@@ -65,11 +64,9 @@ async def update():
                     print("subscribe stop", sub.name)
                     break
                 print("download", sub.name, title, torrent)
-                await broadcast(sub.name, title, torrent)
-
                 if not config.debug.without_transmission:
                     t = trans_client.add_torrent(torrent, download_dir=str(
                         config.base_folder / sub.name))
+                await broadcast(sub.name, title, torrent)
                 conn.download_add(torrent)
-                ret.append((sub.name, title))
-    return ret
+                yield sub.name, title

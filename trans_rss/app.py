@@ -1,12 +1,9 @@
-import re
 from typing import List
 from fastapi import FastAPI, responses
-import httpx
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
 from .config import version, config
 from .sql import Subscribe, Connection
-from . import webhooks
 from .web import routes as web_routes
 from . import actions
 
@@ -75,7 +72,10 @@ async def mark_download(torrent: str):
 async def start():
     global tmp_stop
     tmp_stop = False
-    await actions.update()
+    ret = []
+    async for item in actions.update():
+        ret.append(item)
+    return ret
 
 
 @app.post("/api/stop")
@@ -83,13 +83,20 @@ async def stop():
     global tmp_stop
     tmp_stop = True
 
-app.post("/api/manual_update")(actions.update)
+@app.post("/api/manual_update")
+async def update():
+    ret = []
+    async for item in actions.update():
+        ret.append(item)
+    return ret
+
 
 @app.on_event("startup")
 @repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)
 async def repeat_update():
     if not tmp_stop:
         print("routine task start")
-        await actions.update()
+        async for _ in actions.update():
+            pass
     else:
         print("routine task skip")
