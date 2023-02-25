@@ -14,7 +14,7 @@ tmp_stop = False
 
 
 @app.get("/")
-def hello():
+def web():
     return responses.RedirectResponse("/web?app=sub")
 
 
@@ -31,7 +31,7 @@ async def test_transmission():
 
 
 @app.get("/api/test-sql")
-async def hello(sql_statement: str):
+async def test_sql(sql_statement: str):
     with Connection() as conn:
         cursor = conn.conn.execute(sql_statement)
         return cursor.fetchall()
