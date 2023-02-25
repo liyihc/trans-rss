@@ -1,3 +1,4 @@
+import asyncio
 from functools import partial
 from traceback import print_exc
 from pywebio import *
@@ -6,13 +7,18 @@ from pywebio.platform.fastapi import webio_routes
 from . import actions, config
 from .sql import Connection, Subscribe
 
+
 async def update():
     cnt = 0
     async for name, title in actions.update():
         cnt += 1
         output.popup(f"订阅 {name} 添加新下载项", title)
-    if cnt == 0:
+        await asyncio.sleep(0.5)
+    if cnt:
+        output.popup(f"共添加{cnt}个新下载项")
+    else:
         output.popup(f"未找到有更新的订阅")
+    await asyncio.sleep(1)
 
 
 def common():
@@ -20,7 +26,7 @@ def common():
         ["立刻手动更新", "API page"],
         onclick=[
             update,
-            lambda : session.run_js('window.open("/docs", "_blank")')
+            lambda: session.run_js('window.open("/docs", "_blank")')
         ])
 
 
