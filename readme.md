@@ -7,4 +7,4 @@ docker run -d --name trans-rss -v /path/to/configs:/app/configs -p out_port:80 -
 
 Change the config file and start this container
 
-If your transmission is also running in docker, please add `--link <name or id>:transmission` to docker run command and use `transmission` as your transmission host in trans-rss configs.
+If your transmission is also running in docker, please add `--link <name or id>:transmission` to docker run command and use `transmission` as your transmission host in trans-rss configs. Or you need not add the command, just use `172.17.0.1` as the transmission host, which is host IP for containers in docker.
