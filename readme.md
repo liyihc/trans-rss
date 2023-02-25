@@ -1,4 +1,4 @@
-python=3.10
+python=3.10, support transmission version < 4.0
 
 ```bash
 docker build . -t trans-rss:0.1.0
