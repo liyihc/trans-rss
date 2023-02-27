@@ -20,7 +20,7 @@ async def update():
         output.popup(f"共添加{cnt}个新下载项")
     else:
         output.popup(f"未找到有更新的订阅")
-    await asyncio.sleep(1)
+    await asyncio.sleep(2)
 
 
 def generate_common():
@@ -57,25 +57,34 @@ async def subscribe_to(sub: Subscribe, url: str):
     await update()
     session.go_app("sub-list", False)
 
+async def update_manual():
+    await update()
+    session.go_app("sub-list", False)
+
 
 def generate_sub_table():
     with Connection() as conn:
         table = [
-            "名称 链接 最新话 更新时间 轮询时间 操作".split()
+            "名称 最新话 更新时间 轮询时间 操作".split()
         ]
         for sub in conn.subscribe_get():
-            ss = status.get(sub.name, SubStatus(
-                title="", query_time=None, modify_time=None))
-            table.append(
-                [
-                    sub.name,
-                    output.put_link("订阅链接", sub.url),
-                    output.put_text(ss.title),
-                    output.put_text(str(ss.modify_time or "")),
-                    output.put_text(str(ss.query_time or "")),
-                    output.put_button("删除", partial(subscribe_del, sub.name), "danger")
-                ]
-            )
+            row = [output.put_link(sub.name, sub.url)]
+            if sub.name in status:
+                ss = status[sub.name]
+                row.extend([
+                    output.put_link(ss.title, ss.url),
+                    output.put_text(str(conn.download_time(ss.url) or "")),
+                    output.put_text(str(ss.query_time or ""))])
+            else:
+                row.extend([
+                    output.put_text(""),
+                    output.put_text(""),
+                    output.put_text(""),
+                ])
+            row.append(
+                output.put_button("删除", partial(subscribe_del, sub.name), "danger"))
+            table.append(row)
+
         output.put_table(table)
 
 
@@ -92,7 +101,7 @@ async def sub_list():
                     {"label": "添加新订阅", "value": None, "color": "success"}
                 ],
                 [
-                    update,
+                    update_manual,
                     partial(session.go_app, "subscribe", False)
                 ]
             )

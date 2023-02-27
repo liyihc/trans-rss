@@ -61,6 +61,13 @@ CREATE TABLE downloaded(
         cursor = self.conn.execute("SELECT * FROM downloaded WHERE url = ?", (url, ))
         return cursor.fetchone() is not None
 
+    def download_time(self, url:str):
+        cursor = self.conn.execute("SELECT dt FROM downloaded WHERE url = ?", (url, ))
+        dt = cursor.fetchone()
+        if dt:
+            return datetime.fromisoformat(dt["dt"])
+        return None
+
 
 @contextmanager
 def Connection():

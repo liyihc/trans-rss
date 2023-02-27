@@ -74,10 +74,10 @@ async def update():
                     print("subscribe stop", sub.name)
                     update_logger.info(f"subscribe stop because exist name: {sub.name} title: {title} torrent: {torrent}")
                     if first:
-                        status_update(sub.name, title, True)
+                        status_update(sub.name, title, torrent, True)
                     break
                 if first:
-                    status_update(sub.name, title, False)
+                    status_update(sub.name, title, torrent, False)
                     first = False
                 print("download", sub.name, title, torrent)
                 update_logger.info(f"download name: {sub.name} title: {title} torrent: {torrent}")
