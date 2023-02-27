@@ -16,7 +16,7 @@ tmp_stop = False
 
 @app.get("/")
 def web():
-    return responses.RedirectResponse("/web?app=sub")
+    return responses.RedirectResponse("/web?app=sub-list")
 
 
 app.mount("/web", FastAPI(routes=web_routes))

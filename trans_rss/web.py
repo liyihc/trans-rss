@@ -23,11 +23,11 @@ async def update():
     await asyncio.sleep(1)
 
 
-def common():
+def generate_common():
     output.put_buttons(
-        ["立刻手动更新", "API page"],
+        ["订阅列表", "API page"],
         onclick=[
-            update,
+            lambda: session.go_app("sub-list", False),
             lambda: session.run_js('window.open("/docs", "_blank")')
         ])
 
@@ -35,14 +35,14 @@ def common():
 def subscribe_del(name: str):
     with Connection() as conn:
         conn.subscribe_del(name)
-    session.go_app("sub", False)
+    session.go_app("sub-list", False)
 
 
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
         conn.subscribe(sub.name, sub.url)
     await update()
-    session.go_app("sub", False)
+    session.go_app("sub-list", False)
 
 
 def download_url(url: str):
@@ -55,34 +55,65 @@ async def subscribe_to(sub: Subscribe, url: str):
         conn.download_add(url)
         conn.subscribe(sub.name, sub.url)
     await update()
-    session.go_app("sub", False)
+    session.go_app("sub-list", False)
+
+
+def generate_sub_table():
+    with Connection() as conn:
+        table = [
+            "名称 链接 最新话 更新时间 轮询时间 操作".split()
+        ]
+        for sub in conn.subscribe_get():
+            ss = status.get(sub.name, SubStatus(
+                title="", query_time=None, modify_time=None))
+            table.append(
+                [
+                    sub.name,
+                    output.put_link("订阅链接", sub.url),
+                    output.put_text(ss.title),
+                    output.put_text(str(ss.modify_time or "")),
+                    output.put_text(str(ss.query_time or "")),
+                    output.put_button("删除", partial(subscribe_del, sub.name), "danger")
+                ]
+            )
+        output.put_table(table)
+
+
+async def sub_list():
+    try:
+        session.set_env(title=f"Trans RSS 订阅列表")
+        with output.use_scope("common"):
+            generate_common()
+        with output.use_scope("table"):
+            generate_sub_table()
+            output.put_buttons(
+                [
+                    {"label": "立即更新", "value": None, "color": "success"},
+                    {"label": "添加新订阅", "value": None, "color": "success"}
+                ],
+                [
+                    update,
+                    partial(session.go_app, "subscribe", False)
+                ]
+            )
+    except exceptions.SessionException:
+        raise
+    except Exception as e:
+        print(str(e))
+        print_exc()
+        exception_logger.exception(e, stack_info=True)
+        raise
 
 
 async def subscribe():
     try:
-        session.set_env(title=f"Trans RSS {config.version}")
-        with Connection() as conn:
-            with output.use_scope("common"):
-                common()
-            with output.use_scope("table"):
-                table = [
-                    "名称 链接 最新话 更新时间 轮询时间 操作".split()
-                ]
-                for sub in conn.subscribe_get():
-                    ss = status.get(sub.name, SubStatus(title="", query_time=None, modify_time=None))
-                    table.append(
-                        [
-                            sub.name,
-                            output.put_link("订阅链接", sub.url),
-                            output.put_text(ss.title),
-                            output.put_text(str(ss.modify_time or "")),
-                            output.put_text(str(ss.query_time or "")),
-                            output.put_button("删除", onclick=partial(
-                                subscribe_del, sub.name))
-                        ]
-                    )
-                output.put_table(table)
-            with output.use_scope("subscribe"):
+        session.set_env(title=f"Trans RSS 添加新订阅")
+        with output.use_scope("common"):
+            generate_common()
+        with output.use_scope("table"):
+            generate_sub_table()
+        with output.use_scope("subscribe"):
+            with Connection() as conn:
                 data = await input.input_group(
                     "订阅",
                     [
@@ -119,8 +150,10 @@ async def subscribe():
         exception_logger.exception(e, stack_info=True)
         raise
 
+
 routes = webio_routes(
     {
-        "sub": subscribe,
+        "sub-list": sub_list,
+        "subscribe": subscribe
     }
 )
