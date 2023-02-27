@@ -6,6 +6,8 @@ from pywebio.platform.fastapi import webio_routes
 
 from . import actions, config
 from .sql import Connection, Subscribe
+from .common import SubStatus, status
+from .logger import exception_logger
 
 
 async def update():
@@ -64,13 +66,17 @@ async def subscribe():
                 common()
             with output.use_scope("table"):
                 table = [
-                    "名称 链接 操作".split()
+                    "名称 链接 最新话 更新时间 轮询时间 操作".split()
                 ]
                 for sub in conn.subscribe_get():
+                    ss = status.get(sub.name, SubStatus(title="", query_time=None, modify_time=None))
                     table.append(
                         [
                             sub.name,
                             output.put_link("订阅链接", sub.url),
+                            output.put_text(ss.title),
+                            output.put_text(str(ss.modify_time or "")),
+                            output.put_text(str(ss.query_time or "")),
                             output.put_button("删除", onclick=partial(
                                 subscribe_del, sub.name))
                         ]
@@ -105,10 +111,12 @@ async def subscribe():
                             ]
                         )
                 output.put_button("全部订阅", onclick=sub_all)
+    except exceptions.SessionException:
+        raise
     except Exception as e:
-        if not isinstance(e, exceptions.SessionException):
-            print(str(e))
-            print_exc()
+        print(str(e))
+        print_exc()
+        exception_logger.exception(e, stack_info=True)
         raise
 
 routes = webio_routes(

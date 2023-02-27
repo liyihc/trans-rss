@@ -1,9 +1,12 @@
+from datetime import datetime
 import json
 import re
 from .sql import Subscribe, Connection
 from .config import config
 from . import webhooks
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from .logger import update_logger, api_logger, exception_logger
+from .common import status_update, status
+from tornado.httpclient import AsyncHTTPClient
 
 
 title_pattern = re.compile(r'<title>([^<>]*)</title>')
@@ -44,29 +47,46 @@ async def subscribe(sub: Subscribe):
 async def broadcast(name: str, title: str, torrent: str):
     client = AsyncHTTPClient()
     for webhook in config.webhooks:
+        body = json.dumps(webhooks.feishu(name, title, torrent))
         resp = await client.fetch(
             webhook, method="POST", headers={'Content-Type': 'application/json'},
-            body=json.dumps(webhooks.feishu(name, title, torrent))
-        )
+            body=body)
         print("webhook", webhook, resp.code)
-        # TODO log when failed
+        api_logger.info(f"webhook {webhook} {resp.code}")
+        if not 200 <= resp.code <= 299:
+            exception_logger.info(
+                f"fail to post webhook {webhook}, body={body}")
 
 
 async def update():
     if not config.debug.without_transmission:
         trans_client = config.trans_client()
     with Connection() as conn:
+        names = set()
         for sub in conn.subscribe_get():
+            names.add(sub.name)
+            update_logger.info(f"subscribe name: {sub.name} url: {sub.url}")
             print("subscribe", sub.name, sub.url)
+            first = True
             async for title, torrent in subscribe(sub):
                 if conn.download_exist(torrent):
                     print("torrent exist:", sub.name, title, torrent)
                     print("subscribe stop", sub.name)
+                    update_logger.info(f"subscribe stop because exist name: {sub.name} title: {title} torrent: {torrent}")
+                    if first:
+                        status_update(sub.name, title, True)
                     break
+                if first:
+                    status_update(sub.name, title, False)
+                    first = False
                 print("download", sub.name, title, torrent)
+                update_logger.info(f"download name: {sub.name} title: {title} torrent: {torrent}")
                 if not config.debug.without_transmission:
                     t = trans_client.add_torrent(torrent, download_dir=str(
                         config.base_folder / sub.name))
                 await broadcast(sub.name, title, torrent)
                 conn.download_add(torrent)
                 yield sub.name, title
+        for k in list(status.keys()):
+            if k not in names:
+                status.pop(k)

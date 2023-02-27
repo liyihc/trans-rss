@@ -1,5 +1,6 @@
 
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 import sqlite3
 from pydantic import BaseModel
@@ -53,7 +54,7 @@ CREATE TABLE downloaded(
     def download_add(self, url: str):
         self.conn.execute(
             "INSERT INTO downloaded VALUES(?,?)",
-            (url, str(config.now().replace(microsecond=0))))
+            (url, str(datetime.now().replace(microsecond=0))))
         self.conn.commit()
 
     def download_exist(self, url: str):

@@ -6,6 +6,7 @@ from .config import version, config
 from .sql import Subscribe, Connection
 from .web import routes as web_routes
 from . import actions
+from .logger import exception_logger, update_logger
 
 
 app = FastAPI(title="Trans RSS", version=version)
@@ -83,6 +84,7 @@ async def stop():
     global tmp_stop
     tmp_stop = True
 
+
 @app.post("/api/manual_update")
 async def update():
     ret = []
@@ -91,12 +93,28 @@ async def update():
     return ret
 
 
-@app.on_event("startup")
-@repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)
 async def repeat_update():
     if not tmp_stop:
         print("routine task start")
+        update_logger.info("routine task start")
         async for _ in actions.update():
             pass
     else:
         print("routine task skip")
+        update_logger.info("routine task skip")
+
+app.on_event("startup")(
+    repeat_every(
+        seconds=config.subscribe_minutes * 60, wait_first=True,
+        logger=exception_logger)(
+        repeat_update
+    )
+)
+
+app.on_event("startup")(
+    repeat_every(
+        seconds=30, wait_first=True,
+        logger=exception_logger, max_repetitions=1)(
+        repeat_update
+    )
+)

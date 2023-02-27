@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta, timezone
 import json
+import os
 from pathlib import Path
+from platform import system
+import time
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -8,6 +10,7 @@ import transmission_rpc
 
 
 version = (Path(__file__).parent / "version").read_text()
+
 
 class Debug(BaseModel):
     without_transmission: bool = False
@@ -21,7 +24,7 @@ class Config(BaseModel):
     password: Optional[str] = None
     subscribe_minutes: int = 60
     webhooks: List[str] = []
-    timezone: int = 8
+    timezone: str = "Asia/Shanghai"
     base_folder: Path = Path("/downloads/complete")
     debug: Debug = Debug()
 
@@ -33,14 +36,13 @@ class Config(BaseModel):
             username=self.username,
             password=self.password)
 
-    def now(self):
-        return datetime.now(timezone(timedelta(hours=self.timezone))).replace(tzinfo=None)
-
     def get_seconds(self):
         return self.subscribe_minutes * 60
 
 
-config_dir = Path(__file__).parents[1] / "configs"
+app_dir = Path(__file__).parents[1] 
+config_dir: Path = app_dir / "configs"
+log_dir = app_dir / "logs"
 
 if not config_dir.exists():
     config_dir.mkdir()
@@ -50,5 +52,10 @@ if config_path.exists():
     config = Config.parse_file(config_path)
 else:
     config = Config()
+
+os.environ["TZ"] = config.timezone
+if system() != "Windows":
+    time.tzset()
+
 config_path.write_text(config.json(indent=4))
 sql_path = config_dir / "data.sqlite3"
