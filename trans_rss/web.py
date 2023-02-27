@@ -159,6 +159,8 @@ async def subscribe():
         exception_logger.exception(e, stack_info=True)
         raise
 
+# async def log_page() TODO more GUI
+# async def config_page()
 
 routes = webio_routes(
     {

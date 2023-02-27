@@ -13,6 +13,8 @@ app = FastAPI(title="Trans RSS", version=version)
 
 tmp_stop = False
 
+# @app.middleware() # TODO logging interactive & exceptions
+
 
 @app.get("/")
 def web():

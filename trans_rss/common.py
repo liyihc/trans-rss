@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class SubStatus(BaseModel):
     title: str
     url: str
+    # gui_url: str # TODO
     query_time: Union[datetime, None]
 
 
