@@ -1,6 +1,6 @@
-from datetime import datetime
+from typing import Callable, Generator, Iterable, Tuple
+from xml.dom.minidom import parseString, Element as XmlElement, Attr as XmlAttr, Document as XmlDocument
 import json
-import re
 from .sql import Subscribe, Connection
 from .config import config
 from . import webhooks
@@ -9,8 +9,26 @@ from .common import status_update, status
 from tornado.httpclient import AsyncHTTPClient
 
 
-title_pattern = re.compile(r'<title>([^<>]*)</title>')
-torrent_pattern = re.compile(r'http[^"]*\.torrent')
+def xml_get_text(node: XmlElement):
+    if node.nodeType == node.TEXT_NODE:
+        return node.data
+    ret = []
+    d: XmlElement
+    for d in node.childNodes:
+        if d.nodeType == d.TEXT_NODE:
+            ret.append(d.data)
+    return "".join(ret)
+
+
+def iter_rss(text: str) -> Generator[Tuple[str, str, str], None, None]:
+    doml: XmlDocument = parseString(text)
+    item: XmlElement
+    for item in doml.getElementsByTagName("item"):
+        title = xml_get_text(item.getElementsByTagName("title")[0])
+        link = xml_get_text(item.getElementsByTagName("guid")[0])
+        attr: XmlAttr = item.getElementsByTagName("enclosure")[0]
+        torrent = attr.attributes["url"].value
+        yield title, link, torrent
 
 
 async def subscribe(sub: Subscribe):
@@ -18,23 +36,16 @@ async def subscribe(sub: Subscribe):
     page = 1
     retry = 0
     while True:
-        req = await client.fetch(f"{sub.url}&page={page}")
-        match req.code:
+        resp = await client.fetch(f"{sub.url}&page={page}")
+        match resp.code:
             case 500:  # page end
                 return
             case 200:
                 retry = 0
                 cnt = 0
-                text = req.body.decode()
-                it = title_pattern.finditer(text)
-                next(it)
-                for title, torrent in zip(
-                        it,
-                        torrent_pattern.finditer(text)):
-                    title = title.group(1)
-                    torrent = torrent.group()
+                for title, link, torrent in iter_rss(resp.body.decode()):
                     cnt += 1
-                    yield title, torrent
+                    yield title, link, torrent
                 if not cnt:
                     return
                 page += 1
@@ -58,7 +69,7 @@ async def broadcast(name: str, title: str, torrent: str):
                 f"fail to post webhook {webhook}, body={body}")
 
 
-async def update():
+async def update(notifier: Callable[[str], None] = None):
     if not config.debug.without_transmission:
         trans_client = config.trans_client()
     with Connection() as conn:
@@ -67,20 +78,24 @@ async def update():
             names.add(sub.name)
             update_logger.info(f"subscribe name: {sub.name} url: {sub.url}")
             print("subscribe", sub.name, sub.url)
+            if notifier:
+                notifier(f"正在查找 {sub.name}")
             first = True
-            async for title, torrent in subscribe(sub):
+            async for title, link, torrent in subscribe(sub):
+                if first:
+                    status_update(sub.name, title, link, torrent)
+                    first = False
                 if conn.download_exist(torrent):
                     print("torrent exist:", sub.name, title, torrent)
                     print("subscribe stop", sub.name)
-                    update_logger.info(f"subscribe stop because exist name: {sub.name} title: {title} torrent: {torrent}")
-                    if first:
-                        status_update(sub.name, title, torrent, True)
+                    update_logger.info(
+                        f"subscribe stop because exist name: {sub.name} title: {title} link: {link} torrent: {torrent}")
+                    if notifier:
+                        notifier(f"订阅 {sub.name} 存在 {title}")
                     break
-                if first:
-                    status_update(sub.name, title, torrent, False)
-                    first = False
                 print("download", sub.name, title, torrent)
-                update_logger.info(f"download name: {sub.name} title: {title} torrent: {torrent}")
+                update_logger.info(
+                    f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
                 if not config.debug.without_transmission:
                     t = trans_client.add_torrent(torrent, download_dir=str(
                         config.base_folder / sub.name))

@@ -39,6 +39,10 @@ class Config(BaseModel):
     def get_seconds(self):
         return self.subscribe_minutes * 60
 
+    def write(self):
+        config_path.write_text(self.json(indent=4))
+
+
 
 app_dir = Path(__file__).parents[1] 
 config_dir: Path = app_dir / "configs"
@@ -57,5 +61,5 @@ os.environ["TZ"] = config.timezone
 if system() != "Windows":
     time.tzset()
 
-config_path.write_text(config.json(indent=4))
+config.write()
 sql_path = config_dir / "data.sqlite3"

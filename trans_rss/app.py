@@ -1,20 +1,33 @@
+from traceback import format_exc
 from typing import List
-from fastapi import FastAPI, responses
+from fastapi import FastAPI, Request, Response, responses
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
 from .config import version, config
 from .sql import Subscribe, Connection
 from .web import routes as web_routes
 from . import actions
-from .logger import exception_logger, update_logger
+from .logger import exception_logger, update_logger, api_logger
 
 
 app = FastAPI(title="Trans RSS", version=version)
 
 tmp_stop = False
 
-# @app.middleware() # TODO logging interactive & exceptions
-# TODO remove fastapi
+
+@app.middleware("http")
+async def log_api(request: Request, call_next):
+    try:
+        response: Response = await call_next(request)
+        api_logger.info(
+            f"{request.method} {response.status_code}, {request.client}, {request.url}")
+        return response
+    except Exception as e:
+        api_logger.info(
+            f"{request.method} {500}, {request.client.host}, {request.url}")
+        exception_logger.exception(str(e), stack_info=True)
+        return responses.JSONResponse(
+            {"msg": str(e), "stack": format_exc()}, 500)
 
 
 @app.get("/")
