@@ -25,7 +25,7 @@ class Config(BaseModel):
     subscribe_minutes: int = 60
     webhooks: List[str] = []
     timezone: str = "Asia/Shanghai"
-    base_folder: Path = Path("/downloads/complete")
+    base_folder: str = "/downloads/complete"
     debug: Debug = Debug()
 
     def trans_client(self):
@@ -39,27 +39,31 @@ class Config(BaseModel):
     def get_seconds(self):
         return self.subscribe_minutes * 60
 
-    def write(self):
+    def refresh(self):
+        self.base_folder = self.base_folder.removesuffix("/")
+        self.username = self.username or None
+        self.password = self.password or None
         config_path.write_text(self.json(indent=4))
+        os.environ["TZ"] = self.timezone
+        if system() != "Windows":
+            time.tzset()
+
+    def join(self, path: str):
+        return f"{self.base_folder}/{path}"
 
 
-
-app_dir = Path(__file__).parents[1] 
+app_dir = Path(__file__).parents[1]
 config_dir: Path = app_dir / "configs"
 log_dir = app_dir / "logs"
+config_path = config_dir / "config.json"
+sql_path = config_dir / "data.sqlite3"
 
 if not config_dir.exists():
     config_dir.mkdir()
 
-config_path = config_dir / "config.json"
 if config_path.exists():
     config = Config.parse_file(config_path)
 else:
     config = Config()
 
-os.environ["TZ"] = config.timezone
-if system() != "Windows":
-    time.tzset()
-
-config.write()
-sql_path = config_dir / "data.sqlite3"
+config.refresh()
