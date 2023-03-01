@@ -66,7 +66,7 @@ async def config_page():
             "密码", input.PASSWORD, name="password",
             value=config.password),
         input.input(
-            "轮询时间", input.NUMBER, name="subscribe_minutes",
+            "轮询时间（分钟）", input.NUMBER, name="subscribe_minutes",
             value=config.subscribe_minutes
         ),
         input.input(
