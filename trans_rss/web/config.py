@@ -1,10 +1,13 @@
 import asyncio
 import json
 from typing import Any, Dict
+
 import pytz
+import pywebio
 from pywebio import input, output, session
 from tornado.httpclient import AsyncHTTPClient
-from ..config import config, Config
+
+from ..config import Config, config
 from . import common
 from .common import catcher
 
@@ -36,6 +39,7 @@ async def test_webhooks():
                 f"通知失败: {webhook}\n{msg}", color="error")
 
 
+@pywebio.config(title="Trans RSS 配置", theme="dark")
 @catcher
 async def config_page():
     common.generate_header()
@@ -76,7 +80,8 @@ async def config_page():
             "下载地址", name="base_folder", value=str(config.base_folder),
             help_text="下载地址，各订阅将会在该地址下下载到自己名字的文件夹内"),
         input.textarea("通知webhooks", name="webhooks",
-                       value="\n".join(config.webhooks))
+                       value="\n".join(config.webhooks),
+                       help_text="目前仅支持飞书webhook，在保存后，可使用上面的按钮进行测试")
     ])
     data["webhooks"] = [webhook for webhook in data["webhooks"].splitlines()
                         if webhook]
@@ -90,7 +95,3 @@ async def config_page():
     await asyncio.sleep(2)
 
     session.go_app("config", False)
-
-
-async def webhook_page():
-    common.generate_header()  # need to maintain config version

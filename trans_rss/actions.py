@@ -57,6 +57,7 @@ async def subscribe(sub: Subscribe):
 
 async def broadcast(name: str, title: str, torrent: str):
     client = AsyncHTTPClient()
+    success = True
     for webhook in config.webhooks:
         body = json.dumps(webhooks.feishu(name, title, torrent))
         resp = await client.fetch(
@@ -65,8 +66,10 @@ async def broadcast(name: str, title: str, torrent: str):
         print("webhook", webhook, resp.code)
         api_logger.info(f"webhook {webhook} {resp.code}")
         if not 200 <= resp.code <= 299:
+            success = False
             exception_logger.info(
                 f"fail to post webhook {webhook}, body={body}")
+    return success
 
 
 async def update(notifier: Callable[[str], None] = None):

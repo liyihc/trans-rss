@@ -108,6 +108,10 @@ async def update():
         ret.append(item)
     return ret
 
+@app.post("/api/test_webhooks")
+async def test_webhooks():
+    ret = await actions.broadcast("测试", "webhook", "")
+    return "success" if ret else "fail"
 
 async def repeat_update():
     if not tmp_stop:

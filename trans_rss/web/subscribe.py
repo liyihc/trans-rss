@@ -1,6 +1,7 @@
 import asyncio
 from functools import partial
-from pywebio import *
+import pywebio
+from pywebio import input, output, session
 
 from .. import actions, config
 from ..sql import Connection, Subscribe
@@ -108,9 +109,9 @@ def generate_sub_table():
         output.put_table(table)
 
 
+@pywebio.config(title="Trans RSS 订阅列表", theme="dark")
 @catcher
 async def sub_list_page():
-    session.set_env(title=f"Trans RSS 订阅列表")
     generate_header()
     with output.use_scope("table"):
         generate_sub_table()
@@ -125,9 +126,9 @@ async def sub_list_page():
             ]
         )
 
+@pywebio.config(title="Trans RSS 添加新订阅", theme="dark")
 @catcher
 async def subscribe_page():
-    session.set_env(title=f"Trans RSS 添加新订阅")
     generate_header()
     with output.use_scope("table"):
         generate_sub_table()
@@ -137,7 +138,7 @@ async def subscribe_page():
                 "订阅",
                 [
                     input.input("名称", name="name"),
-                    input.input("链接", input.URL, name="url")
+                    input.input("链接", input.URL, name="url", help_text="目前仅支持acg.rip的RSS订阅")
                 ]
             )
 
