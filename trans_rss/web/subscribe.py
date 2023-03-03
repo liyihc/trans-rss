@@ -17,9 +17,9 @@ async def update():
         output.toast(f"订阅 {name} 下载 {title}")
         await asyncio.sleep(0.5)
     if cnt:
-        output.toast(f"共添加{cnt}个新下载项")
+        output.toast(f"共添加{cnt}个新下载项", color="success")
     else:
-        output.toast(f"未找到有更新的订阅")
+        output.toast(f"未找到有更新的订阅", color="success")
     await asyncio.sleep(2)
 
 
@@ -27,7 +27,7 @@ async def update():
 async def subscribe_del_confirm(name: str):
     with Connection() as conn:
         conn.subscribe_del(name)
-        output.toast(f"删除 {name}")
+        output.toast(f"删除 {name}", color="success")
     session.go_app("sub-list", False)
 
 @catcher

@@ -14,6 +14,20 @@ from .common import catcher
 
 
 @catcher
+async def test_transmission():
+    try:
+        client = config.trans_client(5)
+        torrents = client.get_torrents()
+        output.toast(f"Transmission共有{len(torrents)}个种子正在下载")
+        if torrents:
+            output.toast(f"Transmission下载的某个种子为{torrents[0].name}")
+        output.toast(f"Transmission连接成功", color="success")
+
+    except Exception as e:
+        output.toast(f"Transmission连接失败 {str(e)}", -1, color='error')
+
+
+@catcher
 async def test_webhooks():
     from ..webhooks import feishu
     # client = AsyncHTTPClient()
@@ -24,10 +38,9 @@ async def test_webhooks():
         succ = False
         msg = ""
         try:
-            assert webhook.startswith("http") 
-            # resp = await client.fetch( # TODO cannot catch...
+            # resp = await session.run_asyncio_coroutine(client.fetch( # TODO cannot catch...
             #     webhook, method="POST", headers={'Content-Type': 'application/json'},
-            #     body=body, raise_error=False)
+            #     body=body, raise_error=False))
             resp = requests.post(webhook, data=body, timeout=3)
             # if 200 <= resp.code <= 299:
             if 200 <= resp.status_code <= 299:
@@ -39,7 +52,7 @@ async def test_webhooks():
         except Exception as e:
             msg = str(e)
         if succ:
-            output.toast(f"通知成功: {webhook}\n{msg}")
+            output.toast(f"通知成功: {webhook}\n{msg}", color="success")
         else:
             output.toast(
                 f"通知失败: {webhook}\n{msg}", duration=0, color="error")
@@ -53,10 +66,14 @@ async def config_page():
     output.put_buttons(
         [
             {
+                "label": "测试Transmission", "value": None, "color": "secondary",
+            },
+            {
                 "label": "测试通知", "value": None, "color": "secondary"
             }
         ],
         [
+            test_transmission,
             test_webhooks
         ]
     )
@@ -96,7 +113,7 @@ async def config_page():
         setattr(config, key, getattr(new_config, key))
     config.refresh()
 
-    output.toast("更新配置成功，正在刷新页面")
+    output.toast("更新配置成功，正在刷新页面", color="success")
 
     await asyncio.sleep(2)
 

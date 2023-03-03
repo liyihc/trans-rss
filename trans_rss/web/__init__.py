@@ -11,6 +11,5 @@ routes = webio_routes(
         "subscribe": subscribe_page,
         "log": log_page,
         "config": config_page,
-        # "webhook": webhook_page
     }
 )

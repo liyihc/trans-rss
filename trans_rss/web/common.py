@@ -12,7 +12,6 @@ def generate_header():
                 lambda: session.go_app("sub-list", False),
                 lambda: session.go_app("log", False),
                 lambda: session.go_app("config", False),
-                # lambda: session.go_app("webhook", False),
                 lambda: session.run_js('window.open("/docs", "_blank")')
             ])
 
@@ -28,6 +27,7 @@ def catcher(func):
             print(str(e))
             print_exc()
             exception_logger.exception(e, stack_info=True)
+            output.toast(f"内部错误：{str(e)}", -1, color="error")
             raise
 
     return wrapper

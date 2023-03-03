@@ -28,13 +28,14 @@ class Config(BaseModel):
     base_folder: str = "/downloads/complete"
     debug: Debug = Debug()
 
-    def trans_client(self):
+    def trans_client(self, timeout=30):
         return transmission_rpc.Client(
             protocol=self.protocol,
             host=self.transmission_host,
             port=self.port,
             username=self.username,
-            password=self.password)
+            password=self.password,
+            timeout=timeout)
 
     def get_seconds(self):
         return self.subscribe_minutes * 60
