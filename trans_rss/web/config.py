@@ -6,6 +6,7 @@ import pytz
 import pywebio
 from pywebio import input, output, session
 from tornado.httpclient import AsyncHTTPClient
+import requests
 
 from ..config import Config, config
 from . import common
@@ -15,28 +16,33 @@ from .common import catcher
 @catcher
 async def test_webhooks():
     from ..webhooks import feishu
-    client = AsyncHTTPClient()
+    # client = AsyncHTTPClient()
     for webhook in config.webhooks:
+        output.toast(f"通知测试：{webhook}")
+        await asyncio.sleep(1)
         body = json.dumps(feishu("测试", "webhook", ""))
         succ = False
         msg = ""
         try:
             assert webhook.startswith("http") 
-            resp = await client.fetch( # TODO cannot catch...
-                webhook, method="POST", headers={'Content-Type': 'application/json'},
-                body=body, raise_error=False)
-            if 200 <= resp.code <= 299:
+            # resp = await client.fetch( # TODO cannot catch...
+            #     webhook, method="POST", headers={'Content-Type': 'application/json'},
+            #     body=body, raise_error=False)
+            resp = requests.post(webhook, data=body, timeout=3)
+            # if 200 <= resp.code <= 299:
+            if 200 <= resp.status_code <= 299:
                 succ = True
             else:
                 succ = False
-                msg = resp.body.decode()
+            # msg = resp.body.decode()
+            msg = resp.text
         except Exception as e:
             msg = str(e)
         if succ:
-            output.toast(f"通知成功: {webhook}")
+            output.toast(f"通知成功: {webhook}\n{msg}")
         else:
             output.toast(
-                f"通知失败: {webhook}\n{msg}", color="error")
+                f"通知失败: {webhook}\n{msg}", duration=0, color="error")
 
 
 @pywebio.config(title="Trans RSS 配置", theme="dark")
@@ -75,13 +81,13 @@ async def config_page():
         ),
         input.input(
             "时区", datalist=pytz.all_timezones, name="timezone",
-            value=config.timezone),
+            value=config.timezone, validate=lambda v: None if v in pytz.all_timezones else "时区错误"),
         input.input(
             "下载地址", name="base_folder", value=str(config.base_folder),
             help_text="下载地址，各订阅将会在该地址下下载到自己名字的文件夹内"),
         input.textarea("通知webhooks", name="webhooks",
                        value="\n".join(config.webhooks),
-                       help_text="目前仅支持飞书webhook，在保存后，可使用上面的按钮进行测试")
+                       help_text="目前仅支持飞书webhook，在保存后，可使用上面的按钮进行测试。无效的webhook会导致订阅服务中指")
     ])
     data["webhooks"] = [webhook for webhook in data["webhooks"].splitlines()
                         if webhook]
