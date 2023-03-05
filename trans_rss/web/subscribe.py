@@ -88,14 +88,15 @@ def generate_sub_table():
         table = [
             "名称 最新话 更新时间 轮询时间 操作".split()
         ]
-        for sub in conn.subscribe_get():
-            row = [output.put_button(sub.name, onclick=)]
+        for sub in conn.subscribe_list():
+            row = [output.put_link(sub.name, f"/web/?app=subscribe-manage&name={sub.name}")]
             if sub.name in status:
                 ss = status[sub.name]
+                download = conn.download_get(ss.torrent)
                 row.extend([
                     output.put_link(ss.title, ss.link),
                     output.put_link(
-                        str(conn.download_time(ss.torrent) or ""), ss.torrent),
+                        str(download.dt if download else ""), ss.torrent),
                     output.put_text(str(ss.query_time or ""))])
             else:
                 row.extend([

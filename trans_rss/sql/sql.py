@@ -56,16 +56,26 @@ CREATE TABLE downloaded(
         self.conn.execute("DELETE FROM subscribe WHERE name = ?", (name, ))
         self.conn.commit()
 
-    def subscribe_get(self):
+    def subscribe_list(self):
         cursor = self.conn.execute("SELECT * FROM subscribe")
         for ret in cursor.fetchall():
             yield Subscribe(**ret)
+
+    def subscribe_get(self, name: str):
+        cursor = self.conn.execute(
+            "SELECT * FROM subscribe WHERE name = ?", (name, ))
+        ret = cursor.fetchone()
+        return Subscribe(**ret)
 
     def download_add(self, url: str, torrent_id: Union[int, None] = None):
         self.conn.execute(
             "INSERT INTO downloaded VALUES(?,?,?)",
             (url, str(datetime.now().replace(microsecond=0)), torrent_id))
         self.conn.commit()
+
+    def download_assign(self, url: str, torrent_id: Union[int, None] = None):
+        self.conn.execute(
+            "UPDATE downloaded SET id = ? WHERE url = ?", (torrent_id, url))
 
     def download_exist(self, url: str):
         cursor = self.conn.execute(

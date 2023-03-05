@@ -1,5 +1,7 @@
+import contextvars
 from functools import wraps
 from traceback import print_exc
+from typing import Sequence
 from pywebio import *
 from ..logger import exception_logger
 
@@ -15,17 +17,18 @@ def generate_header():
                 lambda: session.run_js('window.open("/docs", "_blank")')
             ])
 
-in_catcher = False
+
+in_catcher = contextvars.ContextVar("in_catcher", default=False)
+
 
 def catcher(func):
     @wraps(func)
     async def wrapper(*args, **kwds):
-        global in_catcher
-        if in_catcher:
+        if in_catcher.get():
             return await func(*args, **kwds)
         else:
             try:
-                in_catcher = True
+                in_catcher.set(True)
                 return await func(*args, **kwds)
             except exceptions.SessionException:
                 raise
@@ -36,6 +39,6 @@ def catcher(func):
                 output.toast(f"内部错误：{str(e)}", -1, color="error")
                 raise
             finally:
-                in_catcher = False
+                in_catcher.set(False)
 
     return wrapper
