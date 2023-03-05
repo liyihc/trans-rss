@@ -2,14 +2,16 @@ import asyncio
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Dict, List, Tuple
+
+import pywebio
 from pydantic import BaseModel
 from pywebio import input, output, session
 
-from .common import catcher, generate_header
 from .. import actions
-from ..sql import Connection, Subscribe
 from ..config import config
 from ..logger import trans_rss_logger
+from ..sql import Connection, Subscribe
+from .common import catcher, generate_header
 
 
 def refresh():
@@ -18,6 +20,9 @@ def refresh():
 
 @catcher
 async def get_id(title: str, torrent_url: str):
+    if config.debug.without_transmission:
+        output.toast("位于debug模式，无法操纵transmission")
+        return
     trans_rss_logger.info(f"add transmission torrent {title} {torrent_url}")
     t = config.trans_client().add_torrent(torrent_url, paused=True)
     with Connection() as conn:
@@ -30,6 +35,9 @@ async def get_id(title: str, torrent_url: str):
 
 @catcher
 async def delete_confirm(title: str, id: int, torrent_url: str):
+    if config.debug.without_transmission:
+        output.toast("位于debug模式，无法操纵transmission")
+        return
     trans_rss_logger.info(f"delete transmission torrent {id} {title}")
     with Connection() as conn:
         conn.download_assign(torrent_url, None)
@@ -53,6 +61,7 @@ async def delete_download(title: str, id: int, torrent_url: str):
         )
 
 
+@pywebio.config(title="订阅管理", theme="dark")
 @catcher
 async def manage_subscribe():
     generate_header()
@@ -63,6 +72,7 @@ async def manage_subscribe():
         output.put_markdown(f"# {name} 的订阅")
         output.put_table(table)
         return
+    session.set_env(title=f"{name} 的订阅管理")
     with Connection() as conn:
         sub = conn.subscribe_get(name)
         output.put_markdown(f"# [{name}]({sub.url}) 的订阅")
@@ -75,11 +85,15 @@ async def manage_subscribe():
             ]
             download = conn.download_get(torrent_url)
             if download:
-                row.append(
-                    output.put_text(str(download.dt))
-                )
-                if download.id is not None and not config.debug.without_transmission:
-                    torrent = trans_client.get_torrent(download.id)
+                row.append(output.put_text(str(download.dt)))
+                torrent = None
+                try:
+                    if download.id is not None:
+                        torrent = trans_client.get_torrent(download.id)
+                except:
+                    if not config.debug.without_transmission:
+                        conn.download_assign(torrent_url, None)
+                if torrent is not None:
                     row.extend([
                         output.put_text(download.id),
                         output.put_text(torrent.status, torrent.progress),
