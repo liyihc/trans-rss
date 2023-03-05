@@ -76,6 +76,7 @@ CREATE TABLE downloaded(
     def download_assign(self, url: str, torrent_id: Union[int, None] = None):
         self.conn.execute(
             "UPDATE downloaded SET id = ? WHERE url = ?", (torrent_id, url))
+        self.conn.commit()
 
     def download_exist(self, url: str):
         cursor = self.conn.execute(
