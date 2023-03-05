@@ -21,7 +21,7 @@ def refresh():
 @catcher
 async def get_id(title: str, torrent_url: str):
     if config.debug.without_transmission:
-        output.toast("位于debug模式，无法操纵transmission")
+        output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
     trans_rss_logger.info(f"add transmission torrent {title} {torrent_url}")
     t = config.trans_client().add_torrent(torrent_url, paused=True)
@@ -36,9 +36,9 @@ async def get_id(title: str, torrent_url: str):
 @catcher
 async def delete_confirm(title: str, id: int, torrent_url: str):
     if config.debug.without_transmission:
-        output.toast("位于debug模式，无法操纵transmission")
+        output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
-    trans_rss_logger.info(f"delete transmission torrent {id} {title}")
+    trans_rss_logger.info(f"delete transmission torrent {id} {title} {torrent_url}")
     with Connection() as conn:
         conn.download_assign(torrent_url, None)
     config.trans_client().remove_torrent(id, True)

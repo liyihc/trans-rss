@@ -1,26 +1,26 @@
 from pathlib import Path
 from traceback import print_exc
 from pywebio import *
-from ..logger import exception_logger, log_dir
+from ..logger import exception_logger, log_dir, update, trans_rss, api, exception
 
 from .common import generate_header, catcher
 
+
+dirs = {
+    "更新记录": update,
+    "操作记录": trans_rss,
+    "API日志": api,
+    "错误日志": exception
+}
 
 
 @config(title="Trans RSS logs", theme="dark")
 @catcher
 async def log_page():
     generate_header()
-    typ = await input.actions("选择日志类型", ["更新记录", "API日志", "错误日志"])
-    match typ:
-        case "更新记录":
-            dir = "update"
-        case "API日志":
-            dir = "interactive"
-        case "错误日志":
-            dir = "exception"
+    typ = await input.actions("选择日志类型", list(dirs.keys()))
     session.set_env(title=f"Trans RSS {typ}")
-    dir = log_dir / dir
+    dir = dirs[typ]
     file = await input.select(
         "选择日志",
         [{

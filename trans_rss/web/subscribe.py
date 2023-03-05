@@ -1,12 +1,12 @@
 import asyncio
 from functools import partial
-from fastapi import Request
 import pywebio
 from pywebio import input, output, session
 
 from .. import actions, config
 from ..sql import Connection, Subscribe
 from ..common import SubStatus, status
+from ..logger import trans_rss_logger
 
 from .common import generate_header, catcher
 
@@ -25,14 +25,15 @@ async def update():
 
 
 @catcher
-async def subscribe_del_confirm(name: str):
+async def subscribe_del_confirm(name: str, url: str):
     with Connection() as conn:
+        trans_rss_logger.info(f"delete subscribe {name} {url}")
         conn.subscribe_del(name)
         output.toast(f"删除 {name}", color="success")
     session.go_app("sub-list", False)
 
 @catcher
-async def subscribe_del(name: str):
+async def subscribe_del(name: str, url: str):
     with output.popup(f"确定删除订阅 {name} 吗"):
         output.put_buttons(
             [
@@ -48,7 +49,7 @@ async def subscribe_del(name: str):
                     "color": "secondary"
                 }
             ], [
-                lambda : subscribe_del_confirm(name),
+                lambda : subscribe_del_confirm(name, url),
                 output.close_popup
             ]
         )
@@ -56,6 +57,7 @@ async def subscribe_del(name: str):
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
+        trans_rss_logger.info(f"add subscribe {sub.name} {sub.url}")
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub.name, sub.url)
     await update()
@@ -70,6 +72,8 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
+        trans_rss_logger.info(f"add subscribe {sub.name} {sub.url}")
+        trans_rss_logger.info(f"mark download {sub.name} {url}")
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub.name, sub.url)
