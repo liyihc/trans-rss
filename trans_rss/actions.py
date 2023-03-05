@@ -101,8 +101,10 @@ async def update(notifier: Callable[[str], None] = None):
                     f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
                 if not config.debug.without_transmission:
                     t = trans_client.add_torrent(torrent, download_dir=config.join(sub.name))
+                    conn.download_add(torrent, t.id)
+                else:
+                    conn.download_add(torrent)
                 await broadcast(sub.name, title, torrent)
-                conn.download_add(torrent)
                 yield sub.name, title
         for k in list(status.keys()):
             if k not in names:

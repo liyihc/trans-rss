@@ -15,19 +15,27 @@ def generate_header():
                 lambda: session.run_js('window.open("/docs", "_blank")')
             ])
 
+in_catcher = False
 
 def catcher(func):
     @wraps(func)
     async def wrapper(*args, **kwds):
-        try:
-            await func(*args, **kwds)
-        except exceptions.SessionException:
-            raise
-        except Exception as e:
-            print(str(e))
-            print_exc()
-            exception_logger.exception(e, stack_info=True)
-            output.toast(f"内部错误：{str(e)}", -1, color="error")
-            raise
+        global in_catcher
+        if in_catcher:
+            return await func(*args, **kwds)
+        else:
+            try:
+                in_catcher = True
+                return await func(*args, **kwds)
+            except exceptions.SessionException:
+                raise
+            except Exception as e:
+                print(str(e))
+                print_exc()
+                exception_logger.exception(e, stack_info=True)
+                output.toast(f"内部错误：{str(e)}", -1, color="error")
+                raise
+            finally:
+                in_catcher = False
 
     return wrapper

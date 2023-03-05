@@ -3,9 +3,11 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 import sqlite3
+from typing import Union
 from pydantic import BaseModel
 
-from .config import sql_path, config
+from ..config import sql_path, config
+from .updates import update
 
 
 class Subscribe(BaseModel):
@@ -13,12 +15,19 @@ class Subscribe(BaseModel):
     url: str
 
 
+class DownloadTorrent(BaseModel):
+    url: str
+    dt: datetime
+    id: Union[int, None]
+
+
 class _Sql:
-    def __init__(self, conn:sqlite3.Connection, exist:bool) -> None:
+    def __init__(self, conn: sqlite3.Connection, exist: bool) -> None:
         conn.row_factory = sqlite3.Row
         self.conn = conn
         if not exist:
             self.build()
+        update(conn)
 
     def build(self):
         with self.conn as conn:
@@ -33,9 +42,10 @@ CREATE TABLE subscribe(
             conn.execute("""
 CREATE TABLE downloaded(
     url VARCHAR(256) PRIMARY KEY,
-    dt datetime) """)
+    dt datetime,
+    id INT) """)
 
-            conn.execute('INSERT INTO infos VALUES("version", "0.1.0")')
+            conn.execute('INSERT INTO infos VALUES("version", "0.3.0")')
             conn.commit()
 
     def subscribe(self, name: str, url: str):
@@ -51,21 +61,23 @@ CREATE TABLE downloaded(
         for ret in cursor.fetchall():
             yield Subscribe(**ret)
 
-    def download_add(self, url: str):
+    def download_add(self, url: str, torrent_id: Union[int, None] = None):
         self.conn.execute(
-            "INSERT INTO downloaded VALUES(?,?)",
-            (url, str(datetime.now().replace(microsecond=0))))
+            "INSERT INTO downloaded VALUES(?,?,?)",
+            (url, str(datetime.now().replace(microsecond=0)), torrent_id))
         self.conn.commit()
 
     def download_exist(self, url: str):
-        cursor = self.conn.execute("SELECT * FROM downloaded WHERE url = ?", (url, ))
+        cursor = self.conn.execute(
+            "SELECT * FROM downloaded WHERE url = ?", (url, ))
         return cursor.fetchone() is not None
 
-    def download_time(self, url:str):
-        cursor = self.conn.execute("SELECT dt FROM downloaded WHERE url = ?", (url, ))
-        dt = cursor.fetchone()
-        if dt:
-            return datetime.fromisoformat(dt["dt"])
+    def download_get(self, url: str):
+        cursor = self.conn.execute(
+            "SELECT url, dt, id FROM downloaded WHERE url = ?", (url, ))
+        row = cursor.fetchone()
+        if row:
+            return DownloadTorrent(**row)
         return None
 
 

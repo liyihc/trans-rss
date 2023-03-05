@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial
+from fastapi import Request
 import pywebio
 from pywebio import input, output, session
 
@@ -88,7 +89,7 @@ def generate_sub_table():
             "名称 最新话 更新时间 轮询时间 操作".split()
         ]
         for sub in conn.subscribe_get():
-            row = [output.put_link(sub.name, sub.url)]
+            row = [output.put_button(sub.name, onclick=)]
             if sub.name in status:
                 ss = status[sub.name]
                 row.extend([
