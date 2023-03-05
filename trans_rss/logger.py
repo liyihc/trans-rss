@@ -16,6 +16,9 @@ if not update.exists():
 exception = log_dir / "exception"
 if not exception.exists():
     exception.mkdir()
+trans_rss = log_dir / "trans-rss"
+if not trans_rss.exists():
+    trans_rss.mkdir()
 
 fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
@@ -34,4 +37,6 @@ api_logger.setLevel(logging.INFO)
 update_logger = init_logger("update", update)
 update_logger.setLevel(logging.INFO)
 exception_logger = init_logger("exception", exception)
-api_logger.setLevel(logging.INFO)
+exception_logger.setLevel(logging.INFO)
+trans_rss_logger = init_logger("trans-rss", trans_rss)
+trans_rss_logger.setLevel(logging.INFO)

@@ -76,7 +76,7 @@ async def subscribe(name: str):
 @app.get("/api/subscribe", response_model=List[Subscribe])
 async def subscribe():
     with Connection() as conn:
-        return conn.subscribe_get()
+        return conn.subscribe_list()
 
 
 @app.post("/api/mark_download")
