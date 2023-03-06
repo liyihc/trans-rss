@@ -81,7 +81,7 @@ async def manage_subscribe():
         async for title, url, torrent_url, clear in subscribe_and_cache(sub):
             row = [
                 output.put_link(title, url),
-                output.put_link("链接", torrent_url)
+                output.put_link("种子", torrent_url)
             ]
             download = conn.download_get(torrent_url)
             if download:
@@ -111,10 +111,10 @@ async def manage_subscribe():
                     ])
                 else:
                     row.extend([
-                        output.put_button(
-                            "添加下载/获取id", partial(get_id, title, torrent_url)),
                         output.put_text("-"),
-                        output.put_text("-")
+                        output.put_text("-"),
+                        output.put_button(
+                            "添加下载/获取id", partial(get_id, title, torrent_url))
                     ])
             else:
                 row.extend([
