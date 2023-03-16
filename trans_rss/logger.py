@@ -5,20 +5,13 @@ import pathlib
 
 from .config import log_dir
 
-if not log_dir.exists():
-    log_dir.mkdir()
 api = log_dir / "interactive"
-if not api.exists():
-    api.mkdir()
 update = log_dir / "update"
-if not update.exists():
-    update.mkdir()
 exception = log_dir / "exception"
-if not exception.exists():
-    exception.mkdir()
 trans_rss = log_dir / "trans-rss"
-if not trans_rss.exists():
-    trans_rss.mkdir()
+
+for dir in [log_dir, api, update, exception, trans_rss]:
+    dir.mkdir(parents=True, exist_ok=True)
 
 fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 

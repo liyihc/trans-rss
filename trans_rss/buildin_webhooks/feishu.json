@@ -1,0 +1,32 @@
+{
+    "builtin": true,
+    "body": {
+        "msg_type": "post",
+        "content": {
+            "post": {
+                "zh_cn": {
+                    "title": "开始下载 {title}",
+                    "content": [
+                        [
+                            {
+                                "tag": "text",
+                                "text": "订阅任务: {subscribe}"
+                            }
+                        ],
+                        [
+                            {
+                                "tag": "text",
+                                "text": "种子地址: "
+                            },
+                            {
+                                "tag": "a",
+                                "href": "{torrent}",
+                                "text": "{torrent}"
+                            }
+                        ]
+                    ]
+                }
+            }
+        }
+    }
+}
