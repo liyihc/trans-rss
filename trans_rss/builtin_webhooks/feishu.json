@@ -5,12 +5,12 @@
         "content": {
             "post": {
                 "zh_cn": {
-                    "title": "开始下载 {title}",
+                    "title": "$title",
                     "content": [
                         [
                             {
                                 "tag": "text",
-                                "text": "订阅任务: {subscribe}"
+                                "text": "$subscribe"
                             }
                         ],
                         [
@@ -20,8 +20,8 @@
                             },
                             {
                                 "tag": "a",
-                                "href": "{torrent}",
-                                "text": "{torrent}"
+                                "href": "$torrent",
+                                "text": "$torrent"
                             }
                         ]
                     ]

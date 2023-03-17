@@ -12,7 +12,7 @@ from .logger import exception_logger, update_logger, api_logger
 
 app = FastAPI(title="Trans RSS", version=version)
 
-tmp_stop = False
+repeat = config.auto_start
 
 
 @app.middleware("http")
@@ -87,8 +87,8 @@ async def mark_download(torrent: str):
 
 @app.post("/api/start")
 async def start():
-    global tmp_stop
-    tmp_stop = False
+    global repeat
+    repeat = False
     ret = []
     async for item in actions.update():
         ret.append(item)
@@ -97,8 +97,8 @@ async def start():
 
 @app.post("/api/stop")
 async def stop():
-    global tmp_stop
-    tmp_stop = True
+    global repeat
+    repeat = True
 
 
 @app.post("/api/manual_update")
@@ -114,7 +114,7 @@ async def test_webhooks():
     return "success" if ret else "fail"
 
 async def repeat_update():
-    if not tmp_stop:
+    if repeat:
         print("routine task start")
         update_logger.info("routine task start")
         async for _ in actions.update():

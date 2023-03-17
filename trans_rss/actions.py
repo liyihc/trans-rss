@@ -6,6 +6,7 @@ from .sql import Subscribe, Connection
 from .config import config
 from . import webhooks
 from .logger import update_logger, api_logger, exception_logger
+from . import logger
 from .common import status_update, status
 from tornado.httpclient import AsyncHTTPClient
 
@@ -60,16 +61,16 @@ async def broadcast(name: str, title: str, torrent: str):
     client = AsyncHTTPClient()
     success = True
     for webhook in config.webhooks:
-        body = json.dumps(webhooks.feishu(name, title, torrent))
+        body = webhooks.format(webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
         resp = await client.fetch(
-            webhook, method="POST", headers={'Content-Type': 'application/json'},
+            webhook.url, method="POST", headers={'Content-Type': 'application/json'},
             body=body)
-        print("webhook", webhook, resp.code)
-        api_logger.info(f"webhook {webhook} {resp.code}")
-        if not 200 <= resp.code <= 299:
+        print("webhook", webhook.type, webhook.url, resp.code)
+        if 200 <= resp.code <= 299:
+            logger.webhook_noti_success(webhook.type, webhook.url, resp.code)
+        else:
             success = False
-            exception_logger.info(
-                f"fail to post webhook {webhook}, body={body}")
+            logger.webhook_noti_failed(webhook.type, webhook.url, resp.code, body)
     return success
 
 lock = asyncio.Lock()

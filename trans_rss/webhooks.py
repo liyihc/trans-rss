@@ -2,6 +2,7 @@
 from functools import cached_property
 import json
 from pathlib import Path
+from string import Template
 from typing import Dict
 
 from pydantic import BaseModel, BaseConfig
@@ -14,8 +15,11 @@ class Webhook(BaseModel):
     body: dict
 
     @cached_property
-    def body_str(self):
-        return json.dumps(self.body)
+    def template(self):
+        return Template(json.dumps(self.body))
+    
+    def format(self, d: dict):
+        return self.template.safe_substitute(d)
 
     class Config(BaseConfig):
         keep_untouched = BaseConfig.keep_untouched + (cached_property, )
@@ -34,11 +38,12 @@ def init():
     load_from(webhook_dir)
 
 
-def format(type: str, title: str, sub: str, torrent: str) -> str:
-    return _webhooks.get(type).body_str.format(
+def format(type: str, title: str, sub: str, torrent: str):
+    return _webhooks.get(type).format(dict(
         title=title,
         subscribe=sub,
-        torrent=torrent)
+        torrent=torrent
+    )).encode()
 
 
 def get(type: str):
@@ -64,3 +69,5 @@ def remove(type: str):
     (webhook_dir / f"{type}.json").unlink(True)
     del _webhooks[type]
     _try_add_from_file(webhook_builtin_dir / f"{type}.json")
+
+init()
