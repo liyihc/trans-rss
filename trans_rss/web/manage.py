@@ -63,7 +63,7 @@ async def delete_download(title: str, id: int, torrent_url: str):
 
 @pywebio.config(title="订阅管理", theme="dark")
 @catcher
-async def manage_subscribe():
+async def manage_subscribe_page():
     generate_header()
     table = ["标题 下载链接 下载日期 下载id 下载状态 操作".split()]
 
