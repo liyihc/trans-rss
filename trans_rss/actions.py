@@ -4,7 +4,7 @@ from xml.dom.minidom import parseString, Element as XmlElement, Attr as XmlAttr,
 import json
 from .sql import Subscribe, Connection
 from .config import config
-from . import webhooks
+from . import webhook_types
 from .logger import update_logger, api_logger, exception_logger
 from . import logger
 from .common import status_update, status
@@ -61,7 +61,9 @@ async def broadcast(name: str, title: str, torrent: str):
     client = AsyncHTTPClient()
     success = True
     for webhook in config.webhooks:
-        body = webhooks.format(webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
+        if not webhook.enabled:
+            continue
+        body = webhook_types.format(webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
         resp = await client.fetch(
             webhook.url, method="POST", headers={'Content-Type': 'application/json'},
             body=body)

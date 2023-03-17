@@ -9,7 +9,7 @@ import requests
 from pywebio import input, output, pin, session
 from tornado.httpclient import AsyncHTTPClient
 
-from trans_rss import webhooks
+from trans_rss import webhook_types
 from trans_rss.logger import exception_logger, trans_rss_logger, api_logger
 from trans_rss import logger
 
@@ -44,12 +44,14 @@ async def config_page():
         ],
         [
             test_transmission,
-            test_transmission,
+            partial(session.go_app, "webhook-template")
         ]
     )
 
+    output.put_markdown("# Webhooks")
     await generate_webhooks()
 
+    output.put_markdown("# 配置")
     await wait_update_configs()
 
 
@@ -72,7 +74,7 @@ async def generate_webhooks():
         for ind, webhook in enumerate(local_webhooks):
             table.append([
                 pin.put_select(
-                    f"webhook_type_{ind}", webhooks.list(), value=webhook.type),
+                    f"webhook_type_{ind}", webhook_types.list(), value=webhook.type),
                 pin.put_checkbox(
                     f"webhook_enable_{ind}", ["enable"], inline=True, value=["enable"] if webhook.enabled else []),
                 pin.put_input(f"webhook_url_{ind}", value=webhook.url),
@@ -103,7 +105,7 @@ async def webhook_action(index: int, action: str):
         case "test":
             output.toast(f"通知测试：{type} {url}")
             await asyncio.sleep(1)
-            body = webhooks.format(
+            body = webhook_types.format(
                 type, "测试 webhook 标题", "测试 webhook 订阅", "https://github.com/liyihc/trans-rss")
             succ = False
             msg = ""
@@ -142,7 +144,7 @@ async def webhooks_action(action: str):
     match action:
         case "add":
             local_webhooks.append(
-                Webhook(type=list(webhooks.list())[0], enabled=False, url=""))
+                Webhook(type=list(webhook_types.list())[0], enabled=False, url=""))
             await generate_webhooks()
         case "reset":
             local_webhooks_reset()
@@ -169,7 +171,7 @@ async def webhooks_action(action: str):
 
 
 async def wait_update_configs():
-    data: Dict[str, Any] = await input.input_group("配置", [
+    data: Dict[str, Any] = await input.input_group("", [
         input.input(
             "transmission host", name="transmission_host",
             value=config.transmission_host),
@@ -195,11 +197,14 @@ async def wait_update_configs():
             help_text="下载地址，各订阅将会在该地址下下载到自己名字的文件夹内")
     ])
     new_config = Config(**data)
+    new_config.username = new_config.username or None
+    new_config.password = new_config.password or None
     for key in data.keys():
         old_value = getattr(config, key)
         new_value = getattr(new_config, key)
         if old_value != new_value:
             logger.config_updated(key, old_value, new_value)
+            output.toast(f"更新配置{key}从{old_value}至{new_value}")
             setattr(config, key, new_value)
     config.refresh()
 

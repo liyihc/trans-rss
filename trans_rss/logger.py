@@ -1,3 +1,4 @@
+import json
 import logging
 import logging.handlers
 import pathlib
@@ -37,6 +38,16 @@ trans_rss_logger.setLevel(logging.INFO)
 def config_updated(key: str, old_value: str, new_value: str):
     trans_rss_logger.info(f"config change {key} from {old_value} to {new_value}")
 
+def subscribe_del(name: str, url: str):
+    trans_rss_logger.info(f"subscribe delete {name} {url}")
+
+def subscribe_add(name: str, url: str):
+    trans_rss_logger.info(f"subscribe add {name} {url}")
+
+def download_add(subscribe: str, url: str, action="add"):
+    trans_rss_logger.info(f"download {action} {subscribe} {url}")
+
+
 def webhook_noti_success(type: str, url: str, status_code: int):
     api_logger.info(f"webhook notify success {type} {url} {status_code}")
 
@@ -52,3 +63,10 @@ def webhook_change(old_type: str, old_url: str, old_enable: bool, new_type: str,
 
 def webhook_add(type: str, url: str, enable: bool):
     trans_rss_logger.info(f"webhook add {type} {url} {enable}")
+
+def webhook_type_del(name: str, body: dict):
+    body = json.dumps(body, ensure_ascii=False)
+    trans_rss_logger.info(f"webhook-type del {name} {body}")
+
+def webhook_type_json_error(name: str, body: str):
+    trans_rss_logger.info(f"webhook-type json error {name} {body}")

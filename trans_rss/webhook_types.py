@@ -10,13 +10,16 @@ from pydantic import BaseModel, BaseConfig
 from .config import webhook_dir, webhook_builtin_dir
 
 
-class Webhook(BaseModel):
+class WebhookType(BaseModel):
     builtin: bool = True
     body: dict
 
     @cached_property
     def template(self):
-        return Template(json.dumps(self.body))
+        return Template(json.dumps(self.body, ensure_ascii=False))
+
+    def dumps_indent(self):
+        return json.dumps(self.body, indent=4, ensure_ascii=False)
     
     def format(self, d: dict):
         return self.template.safe_substitute(d)
@@ -25,11 +28,11 @@ class Webhook(BaseModel):
         keep_untouched = BaseConfig.keep_untouched + (cached_property, )
 
 
-_webhooks: Dict[str, Webhook] = {}
+_webhook_types: Dict[str, WebhookType] = {}
 
 
 def init():
-    _webhooks.clear()
+    _webhook_types.clear()
 
     def load_from(dir: Path):
         for path in dir.glob("*.json"):
@@ -39,7 +42,7 @@ def init():
 
 
 def format(type: str, title: str, sub: str, torrent: str):
-    return _webhooks.get(type).format(dict(
+    return _webhook_types.get(type).format(dict(
         title=title,
         subscribe=sub,
         torrent=torrent
@@ -47,27 +50,27 @@ def format(type: str, title: str, sub: str, torrent: str):
 
 
 def get(type: str):
-    return _webhooks.get(type)
+    return _webhook_types.get(type)
 
 
 def _try_add_from_file(file: Path):
     if file.exists():
-        _webhooks[file.name.removesuffix(".json")] = Webhook.parse_file(file)
+        _webhook_types[file.name.removesuffix(".json")] = WebhookType.parse_file(file)
 
 
-def add(type: str, webhook: Webhook):
-    with (webhook_dir / f"{type}.json").open('w') as w:
+def add(type: str, webhook: WebhookType):
+    with (webhook_dir / f"{type}.json").open('w', encoding='utf-8') as w:
         json.dump(webhook.dict(), w, ensure_ascii=False, indent=4)
-    _webhooks[type] = webhook
+    _webhook_types[type] = webhook
 
 
 def list():
-    return _webhooks.keys()
+    return _webhook_types.keys()
 
 
 def remove(type: str):
     (webhook_dir / f"{type}.json").unlink(True)
-    del _webhooks[type]
+    del _webhook_types[type]
     _try_add_from_file(webhook_builtin_dir / f"{type}.json")
 
 init()
