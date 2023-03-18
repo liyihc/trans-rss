@@ -72,9 +72,12 @@ config_path = config_dir / "config.json"
 sql_path = config_dir / "data.sqlite3"
 webhook_dir = config_dir / "webhooks"
 webhook_builtin_dir = Path(__file__).parent / "builtin_webhooks"
+subscribe_dir = config_dir / "subscribes"
+subscribe_builtin_dir = Path(__file__).parent / "builtin_subscribes"
 
 config_dir.mkdir(parents=True, exist_ok=True)
 webhook_dir.mkdir(parents=True, exist_ok=True)
+subscribe_dir.mkdir(parents=True, exist_ok=True)
 
 
 def update_config(obj: dict):

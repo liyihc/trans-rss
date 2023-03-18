@@ -1,7 +1,6 @@
 import contextvars
 from functools import partial, wraps
 from traceback import print_exc
-from typing import Sequence
 from pywebio import *
 from ..logger import exception_logger
 
