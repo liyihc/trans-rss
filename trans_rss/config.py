@@ -33,7 +33,7 @@ class Config(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None
     subscribe_minutes: int = 60
-    auto_start:bool = True
+    auto_start: bool = True
     webhooks: List[Webhook] = []
     timezone: str = "Asia/Shanghai"
     base_folder: str = "/downloads/complete"
@@ -113,3 +113,14 @@ else:
     config = Config()
 
 config.refresh()
+
+repeat = config.auto_start
+
+
+def get_repeat():
+    return repeat
+
+
+def set_repeat(value: bool):
+    global repeat
+    repeat = value

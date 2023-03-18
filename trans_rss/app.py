@@ -3,7 +3,7 @@ from typing import List
 from fastapi import FastAPI, Request, Response, responses
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
-from .config import version, config
+from .config import version, config, get_repeat, set_repeat
 from .sql import Subscribe, Connection
 from .web import routes as web_routes
 from . import actions
@@ -12,7 +12,6 @@ from .logger import exception_logger, update_logger, api_logger
 
 app = FastAPI(title="Trans RSS", version=version)
 
-repeat = config.auto_start
 
 
 @app.middleware("http")
@@ -87,8 +86,7 @@ async def mark_download(torrent: str):
 
 @app.post("/api/start")
 async def start():
-    global repeat
-    repeat = False
+    set_repeat(True)
     ret = []
     async for item in actions.update():
         ret.append(item)
@@ -97,8 +95,7 @@ async def start():
 
 @app.post("/api/stop")
 async def stop():
-    global repeat
-    repeat = True
+    set_repeat(False)
 
 
 @app.post("/api/manual_update")
@@ -108,13 +105,15 @@ async def update():
         ret.append(item)
     return ret
 
+
 @app.post("/api/test_webhooks")
 async def test_webhooks():
     ret = await actions.broadcast("测试", "webhook", "")
     return "success" if ret else "fail"
 
+
 async def repeat_update():
-    if repeat:
+    if get_repeat():
         print("routine task start")
         update_logger.info("routine task start")
         async for _ in actions.update():
