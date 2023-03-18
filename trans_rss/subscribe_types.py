@@ -60,10 +60,11 @@ def _get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], defau
 def get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], default: Union[T, NoneType] = None) -> Union[str, T]:
     return _get_text(node, list(reversed(path)), default)
 
+from urllib.parse import urlparse
 
 class SubscribeType(BaseModel):
     builtin: bool = True
-    host_name: str = ""
+    host_name: str = "" # use urllib.urlparse to get hostname urlparse("some url").hostname
     paths: Dict[Keys, List[Tuple[Actions, Union[str, None]]]] = {}
 
     @cached_property
