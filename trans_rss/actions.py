@@ -1,7 +1,10 @@
 import asyncio
 from typing import Callable, Generator, Iterable, List, Tuple
+from urllib.parse import urlparse
 from xml.dom.minidom import parseString, Element as XmlElement, Attr as XmlAttr, Document as XmlDocument
 import json
+
+from trans_rss import subscribe_types
 from .sql import Subscribe, Connection
 from .config import config
 from . import webhook_types
@@ -22,15 +25,16 @@ def xml_get_text(node: XmlElement):
     return "".join(ret)
 
 
-def iter_rss(text: str) -> Generator[Tuple[str, str, str], None, None]:
+def iter_rss(hostname: str, text: str) -> Generator[Tuple[str, str, str], None, None]:
+    sub_type = subscribe_types.get(hostname)
     doml: XmlDocument = parseString(text)
     item: XmlElement
     for item in doml.getElementsByTagName("item"):
-        title = xml_get_text(item.getElementsByTagName("title")[0])
-        link = xml_get_text(item.getElementsByTagName("guid")[0])
-        attr: XmlAttr = item.getElementsByTagName("enclosure")[0]
-        torrent = attr.attributes["url"].value
-        yield title, link, torrent
+        title = sub_type.get_text(item, "title")
+        gui = sub_type.get_text(item, "gui")
+        torrent = sub_type.get_text(item, "torrent")
+        desc = sub_type.get_text(item, "description")
+        yield title, gui, torrent, desc
 
 
 async def subscribe(sub: Subscribe):
@@ -39,15 +43,16 @@ async def subscribe(sub: Subscribe):
     retry = 0
     while True:
         resp = await client.fetch(f"{sub.url}&page={page}")
+        hostname = urlparse(sub.url).hostname
         match resp.code:
             case 500:  # page end
                 return
             case 200:
                 retry = 0
                 cnt = 0
-                for title, link, torrent in iter_rss(resp.body.decode()):
+                for title, link, torrent, description in iter_rss(hostname, resp.body.decode()):
                     cnt += 1
-                    yield title, link, torrent
+                    yield title, link, torrent, description
                 if not cnt:
                     return
                 page += 1
@@ -91,7 +96,7 @@ async def update(notifier: Callable[[str], None] = None):
                     notifier(f"正在查找 {sub.name}")
                 first = True
                 l: List[Tuple[str, str, str]] = []
-                async for title, link, torrent in subscribe(sub):
+                async for title, link, torrent, description in subscribe(sub):
                     if first:
                         status_update(sub.name, title, link, torrent)
                         first = False

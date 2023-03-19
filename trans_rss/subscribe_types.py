@@ -15,6 +15,8 @@ Actions = Literal["Node", "Plain", "XML", "Attr"]
 
 T = TypeVar("T")
 
+_list_type = list
+
 
 def iter_node(node: Element, path: list = []) -> Generator[Tuple[Element, List[Tuple[Actions, str]]], None, None]:
     child: Element
@@ -41,6 +43,8 @@ def iter_plain(node: Element) -> Generator[str, None, None]:
 
 
 def _get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], default):
+    if not path:
+        return default
     child: Element
     match path.pop():
         case "Node", tag:
@@ -58,25 +62,36 @@ def _get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], defau
 
 
 def get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], default: Union[T, NoneType] = None) -> Union[str, T]:
-    return _get_text(node, list(reversed(path)), default)
+    return _get_text(node, _list_type(reversed(path)), default)
 
-from urllib.parse import urlparse
+
 
 class SubscribeType(BaseModel):
     builtin: bool = True
-    host_name: str = "" # use urllib.urlparse to get hostname urlparse("some url").hostname
-    paths: Dict[Keys, List[Tuple[Actions, Union[str, None]]]] = {}
+    hostname: str = ""
+    example_url: str = ""
+    paths: Dict[Keys, List[Tuple[Actions, Union[str, None]]]] = {
+        "title": [("Node", "title"), ("Plain", None)],
+        "gui": [("Node", "guid"), ("Plain", None)],
+        "description": [("Node", "description"), ("Plain", None)]
+    }
 
     @cached_property
     def host_name_pattern(self):
-        return re.compile(rf"https?://{re.escape(self.host_name)}")
+        return re.compile(rf"https?://{re.escape(self.hostname)}")
 
     @cached_property
     def filename(self):
-        return f"{self.host_name.replace('.','_')}.json"
+        return f"{self.hostname.replace('.','_')}.json"
 
     def get_texts(self, node: Element, default="未找到") -> Dict[Keys, str]:
-        return {key: get_text(node, self.paths[key], default) for key in get_args(Keys)}
+        return {key: self.get_text(node, key, default) for key in get_args(Keys)}
+
+    def get_text(self, node: Element, key: Keys, default="未找到"):
+        return get_text(node, self.get_path(key), default)
+
+    def get_path(self, key: Keys):
+        return self.paths.get(key, [])
 
     class Config(BaseConfig):
         keep_untouched = BaseConfig.keep_untouched + (cached_property, )
@@ -99,7 +114,7 @@ def init():
 def _try_add_from_file(file: Path):
     if file.exists():
         st = SubscribeType.parse_file(file)
-        _subscribe_types[st.host_name] = st
+        _subscribe_types[st.hostname] = st
 
 
 def list():
@@ -108,17 +123,20 @@ def list():
 
 def add(st: SubscribeType):
     with (subscribe_dir / st.filename).open("w", encoding='utf-8') as w:
-        json.dump(st.dict(), w, ensure_ascii=False, indent=4)
-    _subscribe_types[st.host_name] = st
+        json.dump(st.dict(exclude={"filename"}), w, ensure_ascii=False, indent=4)
+    _subscribe_types[st.hostname] = st
 
 
-def get(host_name: str):
-    return _subscribe_types.get(host_name)
+def get(hostname: str):
+    return _subscribe_types.get(hostname)
 
 
-def remove(host_name: str):
-    st = _subscribe_types[host_name]
+def remove(hostname: str):
+    st = _subscribe_types[hostname]
     assert not st.builtin
     (subscribe_dir / st.filename).unlink(True)
-    st = _subscribe_types.pop(host_name)
+    st = _subscribe_types.pop(hostname)
     _try_add_from_file(subscribe_builtin_dir / st.filename)
+
+
+init()

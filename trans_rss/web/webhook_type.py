@@ -12,7 +12,7 @@ from pywebio import input, output, pin, session
 
 @pywebio.config(title="Trans RSS 自定义webhook模板", theme="dark")
 @catcher
-async def webhook_template_page():
+async def webhook_type_page():
     common.generate_header()
 
     output.put_markdown("# 自定义webhook")

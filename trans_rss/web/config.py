@@ -40,11 +40,13 @@ async def config_page():
     output.put_buttons(
         [
             {"label": "测试Transmission", "value": None, "color": "secondary"},
-            {"label": "管理webhooks模板", "value": None, "color": "secondary"}
+            {"label": "管理webhooks模板", "value": None, "color": "secondary"},
+            {"label": "管理subscribe模板", "value": None, "color": "secondary"}
         ],
         [
             test_transmission,
-            partial(session.go_app, "webhook-template")
+            partial(session.go_app, "webhook-type"),
+            partial(session.go_app, "subscribe-type")
         ]
     )
 

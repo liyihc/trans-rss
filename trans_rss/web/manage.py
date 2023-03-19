@@ -14,7 +14,7 @@ from ..sql import Connection, Subscribe
 from .common import catcher, generate_header
 
 
-def refresh():
+def refresh(): # TODO: remove refresh
     session.run_js("location.reload()")
 
 
@@ -78,7 +78,7 @@ async def manage_subscribe_page():
         output.put_markdown(f"# [{name}]({sub.url}) 的订阅")
         if not config.debug.without_transmission:
             trans_client = config.trans_client()
-        async for title, url, torrent_url, clear in subscribe_and_cache(sub):
+        async for title, url, torrent_url, description, clear in subscribe_and_cache(sub):
             row = [
                 output.put_link(title, url),
                 output.put_link("种子", torrent_url)
