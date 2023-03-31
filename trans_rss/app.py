@@ -63,7 +63,7 @@ async def subscribe(name: str, url: str):
     with Connection() as conn:
         conn.subscribe(name, url)
         sub = Subscribe(name=name, url=url)
-        return [Torrent(title=title, url=torrent) async for title, torrent in actions.subscribe(sub)]
+        return [Torrent(title=title, url=torrent) async for title, gui, torrent, description in actions.subscribe(sub)]
 
 
 @app.delete("/api/subscribe")

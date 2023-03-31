@@ -1,0 +1,47 @@
+{
+    "builtin": true,
+    "hostname": "acg.rip",
+    "example_url": "https://acg.rip/.xml",
+    "paths": {
+        "title": [
+            [
+                "Node",
+                "title"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "gui": [
+            [
+                "Node",
+                "guid"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "description": [
+            [
+                "Node",
+                "description"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "torrent": [
+            [
+                "Node",
+                "enclosure"
+            ],
+            [
+                "Attr",
+                "url"
+            ]
+        ]
+    }
+}

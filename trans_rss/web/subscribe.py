@@ -141,7 +141,7 @@ async def subscribe_page():
         sub = Subscribe(**data)
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
-        async for title, link, torrent in actions.subscribe(sub):
+        async for title, link, torrent, description in actions.subscribe(sub):
             if conn.download_exist(torrent):
                 output.put_row(
                     [
