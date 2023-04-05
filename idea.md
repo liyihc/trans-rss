@@ -1,4 +1,0 @@
-- server: fastapi
-- db: tinydb
-- tool:
-  - transmission-rpc
