@@ -6,6 +6,7 @@ from .config import config_page
 from .manage import manage_subscribe_page
 from .webhook_type import webhook_type_page
 from .subscribe_type import subscribe_type_page
+from trans_rss.config import config
 
 
 routes = webio_routes(
@@ -18,5 +19,5 @@ routes = webio_routes(
         "subscribe-manage": manage_subscribe_page,
         "webhook-type": webhook_type_page,
         "subscribe-type": subscribe_type_page
-    }
+    }, cdn=True if config.cdn else "static"
 )

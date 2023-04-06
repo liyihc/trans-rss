@@ -34,6 +34,7 @@ class Config(BaseModel):
     password: Optional[str] = None
     subscribe_minutes: int = 60
     auto_start: bool = True
+    cdn: bool = True
     webhooks: List[Webhook] = []
     timezone: str = "Asia/Shanghai"
     base_folder: str = "/downloads/complete"

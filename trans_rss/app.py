@@ -1,17 +1,18 @@
 from traceback import format_exc
 from typing import List
-from fastapi import FastAPI, Request, Response, responses
+
+import pywebio
+from fastapi import FastAPI, Request, Response, responses, staticfiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
-from .config import version, config, get_repeat, set_repeat
-from .sql import Subscribe, Connection
-from .web import routes as web_routes
-from . import actions
-from .logger import exception_logger, update_logger, api_logger
 
+from . import actions
+from .config import config, get_repeat, set_repeat, version
+from .logger import api_logger, exception_logger, update_logger
+from .sql import Connection, Subscribe
+from .web import routes as web_routes
 
 app = FastAPI(title="Trans RSS", version=version)
-
 
 
 @app.middleware("http")
@@ -34,7 +35,10 @@ def web():
     return responses.RedirectResponse("/web?app=sub-list")
 
 
-app.mount("/web", FastAPI(routes=web_routes))
+webio_app = FastAPI(routes=web_routes)
+webio_app.mount("/static", staticfiles.StaticFiles(directory=pywebio.STATIC_PATH), name="static")
+
+app.mount("/web", webio_app)
 
 
 @app.on_event("startup")

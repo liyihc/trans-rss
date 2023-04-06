@@ -136,7 +136,8 @@ async def webhook_action(index: int, action: str):
             webhook = local_webhooks.pop(index)
             if url:
                 logger.webhook_del(type, url, webhook.enabled)
-                output.toast(f"webhook删除{type} {url} {webhook.enabled}（可通过重置还原此删除）")
+                output.toast(
+                    f"webhook删除{type} {url} {webhook.enabled}（可通过重置还原此删除）")
             await generate_webhooks()
 
 
@@ -161,7 +162,8 @@ async def webhooks_action(action: str):
                         logger.webhook_change(
                             webhook.type, webhook.url, webhook.enabled,
                             type, url, enabled)
-                        output.toast(f"webhook更新，从{webhook.type} {webhook.url} {webhook.enabled}到{type} {url} {enabled}")
+                        output.toast(
+                            f"webhook更新，从{webhook.type} {webhook.url} {webhook.enabled}到{type} {url} {enabled}")
                     else:
                         logger.webhook_add(type, url, enabled)
                         output.toast(f"webhook添加{type} {url} {enabled}")
@@ -196,7 +198,10 @@ async def wait_update_configs():
             value=config.timezone, validate=lambda v: None if v in pytz.all_timezones else "时区错误"),
         input.input(
             "下载地址", name="base_folder", value=str(config.base_folder),
-            help_text="下载地址，各订阅将会在该地址下下载到自己名字的文件夹内")
+            help_text="下载地址，各订阅将会在该地址下下载到自己名字的文件夹内"),
+        input.radio(
+            "使用CDN", name="cdn", options=[{"label": "是", "value": True}, {"label": "否", "value": False}],
+            value=config.cdn, help_text="否将使用内置CDN，在jsdelivr无法访问时使用。需要重新启动服务才能生效")
     ])
     new_config = Config(**data)
     new_config.username = new_config.username or None
