@@ -117,7 +117,7 @@ async def update(notifier: Callable[[str], None] = None):
                     if not config.debug.without_transmission:
                         t = trans_client.add_torrent(
                             torrent, download_dir=config.join(sub.name))
-                        conn.download_add(torrent, t.id)
+                        conn.download_add(torrent, t.torrent_file)
                     else:
                         conn.download_add(torrent)
                     await broadcast(sub.name, title, torrent)
