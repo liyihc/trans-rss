@@ -7,7 +7,7 @@ from .. import actions, config
 from ..sql import Connection, Subscribe
 from ..common import SubStatus, status
 
-from .common import generate_header, catcher
+from .common import button, generate_header, catcher
 from trans_rss import logger
 
 
@@ -26,28 +26,19 @@ async def update():
 
 @catcher
 async def subscribe_del(name: str, url: str):
-    with output.popup(f"确定删除订阅 {name} 吗"):
-        @catcher
-        async def confirm(confirm: bool):
-            if confirm:
-                with Connection() as conn:
-                    logger.subscribe_del(name, url)
-                    conn.subscribe_del(name)
-                    output.toast(f"删除 {name}", color="success")
-                generate_sub_table()
-            output.close_popup()
-
-        output.put_buttons(
-            [
-                {"label": "确定", "value": True, "color": "danger"},
-                {"label": "取消", "value": False, "color": "secondary"}
-            ], confirm)
+    confirm = await input.actions(f"确定删除订阅 {name} 吗", [button("确定", True, "danger"), button("取消", False, "secondary")])
+    if confirm:
+        with Connection() as conn:
+            logger.subscribe("delete", name, url)
+            conn.subscribe_del(name)
+            output.toast(f"删除 {name}", color="success")
+        generate_sub_table()
 
 
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
-        logger.subscribe_add(sub.name, sub.url)
+        logger.subscribe("add", sub.name, sub.url)
         conn.subscribe(sub.name, sub.url)
         output.toast(f"添加订阅 {sub.name}")
     await update()
@@ -62,8 +53,8 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.subscribe_add(sub.name, sub.url)
-        logger.download_add(sub.name, sub.url, "mark")
+        logger.subscribe("add", sub.name, sub.url)
+        logger.manual("mark", url, sub.name, sub.url)
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub.name, sub.url)

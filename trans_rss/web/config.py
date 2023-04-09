@@ -10,7 +10,6 @@ from pywebio import input, output, pin, session
 from tornado.httpclient import AsyncHTTPClient
 
 from trans_rss import webhook_types
-from trans_rss.logger import exception_logger, trans_rss_logger, api_logger
 from trans_rss import logger
 
 from ..config import Config, Webhook, config

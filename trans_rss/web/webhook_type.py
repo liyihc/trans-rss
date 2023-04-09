@@ -1,7 +1,7 @@
 from functools import partial
 import json
 import re
-from .common import catcher
+from .common import button, catcher
 from . import common
 from trans_rss import logger, webhook_types
 from trans_rss.webhook_types import WebhookType
@@ -73,33 +73,27 @@ async def webhook_type_action(index: int, webhook_type: str, action: str):
                     f"webhook模板 {webhook_type} 为内置webhook，你不能将其删除",
                     duration=0, color="warn")
             else:
-                used_webhooks = [hook for hook in config.webhooks if hook.type == webhook_type]
+                used_webhooks = [
+                    hook for hook in config.webhooks if hook.type == webhook_type]
                 if used_webhooks:
-                    used_webhooks = '\n'.join(hook.url for hook in used_webhooks)
+                    used_webhooks = '\n'.join(
+                        hook.url for hook in used_webhooks)
                     output.toast(
                         f"webhook模板 {webhook_type} 被以下webhook使用：\n{used_webhooks}",
                         duration=0, color="warn")
                     return
 
-                @catcher
-                async def confirm(action: bool):
-                    if action:
-                        logger.webhook_type_del(webhook_type, webhook.body)
-                        webhook_types.remove(webhook_type)
-                        await put_webhook_types()
-                        output.close_popup()
-                    else:
-                        output.close_popup()
-
-                with output.popup(f"确定删除webhook模板{webhook_type}吗？"):
-                    output.put_buttons(
-                        [
-                            {"label": "确定", "value": True, "color": "danger"},
-                            {"label": "取消", "value": False, "color": "secondary"}
-                        ], confirm
-                    )
+                confirm = await input.actions(
+                    f"确定删除webhook模板{webhook_type}吗？",
+                    [button("确定", True, "danger"), button("取消", False, "secondary")])
+                
+                if confirm:
+                    logger.webhook_type_del(webhook_type, webhook.body)
+                    webhook_types.remove(webhook_type)
+                    await put_webhook_types()
 
 NameTemplate = re.compile(r"^[a-zA-Z0-9\-_]*$")
+
 
 def put_webhook_type_edit(index: int, webhook_type: str):
     with output.use_scope(str(index), True):
@@ -109,10 +103,12 @@ def put_webhook_type_edit(index: int, webhook_type: str):
                 case "confirm":
                     new_type = await pin.pin[f"webhook-name-{index}"]
                     if new_type != webhook_type and new_type in webhook_types._webhook_types:
-                        output.toast(f"已有名称为{new_type}的webhook模板", -1, color="error")
+                        output.toast(
+                            f"已有名称为{new_type}的webhook模板", -1, color="error")
                         return
                     if not NameTemplate.fullmatch(new_type):
-                        output.toast("名称内仅可含有大小写字母、数字、减号-、下划线_", -1, color="error")
+                        output.toast(
+                            "名称内仅可含有大小写字母、数字、减号-、下划线_", -1, color="error")
                         return
                     new_body = await pin.pin[f"webhook-type-{index}"]
                     try:
@@ -136,7 +132,6 @@ def put_webhook_type_edit(index: int, webhook_type: str):
                 case "cancel":
                     put_webhook_type_normal(index, webhook_type)
 
-        
         output.put_row([
             pin.put_input(f"webhook-name-{index}", value=webhook_type),
             None,

@@ -1,20 +1,22 @@
 import asyncio
 from datetime import datetime, timedelta
 from functools import partial
-from typing import Dict, List, Tuple
+from typing import Dict, List, Literal, Tuple
 
+from transmission_rpc import TransmissionError
 import pywebio
 from pydantic import BaseModel
 from pywebio import input, output, session
 
 from .. import actions
 from ..config import config
-from ..logger import trans_rss_logger
+from .. import logger
 from ..sql import Connection, Subscribe
-from .common import catcher, generate_header
+from .common import catcher, generate_header, button
 
 
-def refresh():  # TODO: remove refresh
+async def refresh():  # TODO: remove refresh
+    await asyncio.sleep(.5)
     session.run_js("location.reload()")
 
 
@@ -23,44 +25,50 @@ async def get_id(title: str, torrent_url: str):
     if config.debug.without_transmission:
         output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
-    trans_rss_logger.info(f"add transmission torrent {title} {torrent_url}")
-    output.toast("向transmission-rpc提交了一个功能请求，请求抛出异常的时候同时抛出数据，在他们回复之后这个功能就可以用了。")
-    t = config.trans_client().add_torrent(torrent_url) # TODO wait response https://github.com/trim21/transmission-rpc/issues/262
-    with Connection() as conn:
-        conn.download_assign(torrent_url, t.torrent_file)
+    client = config.trans_client()
+    try:
+        torrent = client.add_torrent(torrent_url, paused=True)
 
-    output.toast(f"已添加")
-    await asyncio.sleep(.5)
-    refresh()
+        logger.manual("download", torrent_url, title)
+        output.toast(f"添加新任务 {title}，请手动开始")
+    except TransmissionError as e:
+        resp = e.response
+        assert "duplicate torrent" == resp["result"]
+        torrent_id = resp["arguments"]["torrent-duplicate"]["id"]
+        torrent = client.get_torrent(torrent_id)
+        logger.manual("retrieve", torrent_url, title)
+    with Connection() as conn:
+        conn.download_assign(torrent_url, torrent.torrent_file)
+
+    await refresh()
 
 
 @catcher
-async def delete_confirm(title: str, id: int, torrent_url: str):
-    if config.debug.without_transmission:
-        output.toast("位于debug模式，无法操纵transmission", color='warn')
-        return
-    trans_rss_logger.info(
-        f"delete transmission torrent {id} {title} {torrent_url}")
-    with Connection() as conn:
-        conn.download_assign(torrent_url, None)
-    config.trans_client().remove_torrent(id, True)
-    output.toast(f"已在transmission中删除 {title}")
-    refresh()
+async def manage_download(title: str, id: int, torrent_url: str, action: Literal["start", "stop", "delete"]):
+    client = config.trans_client()
+    match action:
+        case "start":
+            client.start_torrent(id)
+            logger.manual("start", torrent_url, title)
+            output.toast(f"已开始下载 {title}", color="success")
+        case "stop":
+            client.stop_torrent(id)
+            logger.manual("stop", torrent_url, title)
+            output.toast(f"已停止下载 {title}", color="success")
+        case "delete":
+            confirm = await input.actions(f"确定删除 {title} 吗", [button("确定", True, "danger"), button("取消", False, "success")])
+            if not confirm:
+                return
+            if config.debug.without_transmission:
+                output.toast("位于debug模式，无法操纵transmission", color='warn')
+                return
+            logger.manual("delete", torrent_url, title)
+            with Connection() as conn:
+                conn.download_assign(torrent_url, None)
+            config.trans_client().remove_torrent(id, True)
+            output.toast(f"已在transmission中删除 {title}")
 
-
-@catcher
-async def delete_download(title: str, id: int, torrent_url: str):
-    with output.popup(f"确定删除 {title} 吗"):
-        output.put_buttons(
-            [
-                {"label": "确定", "value": True, "color": "danger"},
-                {"label": "取消", "value": False,
-                    "type": "cancel", "color": "secondary"}
-            ], [
-                partial(delete_confirm, title, id, torrent_url),
-                output.close_popup
-            ]
-        )
+    await refresh()
 
 
 @pywebio.config(title="订阅管理", theme="dark")
@@ -87,23 +95,19 @@ async def manage_subscribe_page():
                 output.put_link("种子", torrent_url)
             ]
             download = conn.download_get(torrent_url)
-            if download:  
+            if download:
                 row.append(output.put_text(str(download.dt)))
                 torrent = torrents.get(download.local_torrent, None)
                 if torrent is not None:
                     row.extend([
                         output.put_text(torrent.status, torrent.progress),
                         output.put_buttons([
-                            {
-                                "label": "删除",
-                                "value": None,
-                                "color": "danger"
-                            }
+                            button("启动", "start", "success") if torrent.stopped else button(
+                                "停止", "stop", "danger"),
+                            button("删除", "delete", "danger"),
                         ],
-                            [
-                                partial(delete_download, title,
-                                        torrent.id, torrent_url)
-                        ])
+                            partial(manage_download, title,
+                                    torrent.id, torrent_url),)
                     ])
                 else:
                     row.extend([
@@ -113,7 +117,7 @@ async def manage_subscribe_page():
                     ])
             else:
                 row.extend([
-                    output.put_text("-") for _ in range(4)
+                    output.put_text("-") for _ in range(3)
                 ])
             table.append(row)
             if clear:
@@ -134,15 +138,15 @@ caches: Dict[str, Cache] = {}
 async def subscribe_and_cache(sub: Subscribe):
     now = datetime.now()
     hour = timedelta(hours=1)
-    subscribe = True
+    need_sub = True
     if sub.url in caches:
         cache = caches[sub.url]
         if now - cache.dt < hour:
-            subscribe = False
+            need_sub = False
             for ret in cache.rets:
                 yield (*ret, False)
     cache = Cache(dt=now, rets=[])
-    if subscribe:
+    if need_sub:
         async for ret in actions.subscribe(sub):
             cache.rets.append(ret)
             yield (*ret, True)

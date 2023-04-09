@@ -11,8 +11,9 @@ from pywebio import input, output, session, pin
 import requests
 
 from trans_rss import subscribe_types
+from trans_rss import logger
 
-from .common import catcher
+from .common import button, catcher
 from . import common
 from trans_rss.subscribe_types import Keys, Actions, SubscribeType, iter_node, iter_xml, iter_plain
 
@@ -96,6 +97,7 @@ async def put_main():
                     return
                 else:
                     output.toast(f'覆盖内置网址{hostname}', color="warn")
+            logger.subscribe_type("add", hostname)
             subscribe_types.add(SubscribeType(
                 builtin=False,
                 hostname=hostname,
@@ -110,22 +112,16 @@ async def subscribe_type_action(hostname: str, action: str):
         case "edit":
             await put_edit_subscribe_type(hostname)
         case "delete":
-            @catcher
-            async def confirm(action: bool):
-                if action:
-                    subscribe_types.remove(hostname)
-                    output.close_popup()
-                    await put_main()
-                else:
-                    output.close_popup()
-
-            with output.popup(f"确定删除订阅模板{hostname}吗？"):
-                output.put_buttons(
-                    [
-                        {"label": "确定", "value": True, "color": "danger"},
-                        {"label": "取消", "value": False, "color": "secondary"}
-                    ], confirm
-                )
+            confirm = await input.actions(
+                f"确定删除订阅模板{hostname}吗？", 
+                [
+                    button("确定", True, "danger"),
+                    button("取消", False, "secondary")
+                ])
+            if confirm:
+                logger.subscribe_type("delete", hostname, subscribe_types.get(hostname).json())
+                subscribe_types.remove(hostname)
+                await put_main()
 
 
 @catcher
@@ -173,29 +169,27 @@ async def put_edit_subscribe_type(hostname: str):
                             f"subscribe-path-{index}", options, value=value)
                     ])
 
+
                 output.put_table(table)
 
-                @catcher
-                async def confirm():
-                    new_sub_type = deepcopy(subscribe_type)
-                    for index, (type, path, plain) in enumerate(paths):
-                        select = await pin.pin[f"subscribe-path-{index}"]
-                        if select:
-                            new_sub_type.paths[select] = path
+            await input.actions("", [button("确认", True)])
 
-                    with output.use_scope("output", True):
-                        output.put_markdown("## 确认测试结果")
-                        put_table_for_test([item], new_sub_type)
+            new_sub_type = deepcopy(subscribe_type)
+            for index, (type, path, plain) in enumerate(paths):
+                select = await pin.pin[f"subscribe-path-{index}"]
+                if select:
+                    new_sub_type.paths[select] = path
 
-                        @catcher
-                        async def confirm():
-                            subscribe_types.add(new_sub_type)
-                            await put_edit_subscribe_type(hostname)
-                            output.clear_scope("output")
-                        output.put_button("确认", confirm)
+            with output.use_scope("output", True):
+                output.put_markdown("## 确认测试结果")
+                put_table_for_test([item], new_sub_type)
 
-                output.put_button("确认", confirm)
+            await input.actions("", [button("确认", True)])
 
+            logger.subscribe_type("modify", hostname, new_sub_type.json())
+            subscribe_types.add(new_sub_type)
+            await put_edit_subscribe_type(hostname)
+            output.clear_scope("output")
         @catcher
         async def put_test():
             with output.use_scope("output", True):
