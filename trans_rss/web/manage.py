@@ -14,7 +14,7 @@ from ..sql import Connection, Subscribe
 from .common import catcher, generate_header
 
 
-def refresh(): # TODO: remove refresh
+def refresh():  # TODO: remove refresh
     session.run_js("location.reload()")
 
 
@@ -24,9 +24,10 @@ async def get_id(title: str, torrent_url: str):
         output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
     trans_rss_logger.info(f"add transmission torrent {title} {torrent_url}")
-    t = config.trans_client().add_torrent(torrent_url, paused=True)
+    output.toast("向transmission-rpc提交了一个功能请求，请求抛出异常的时候同时抛出数据，在他们回复之后这个功能就可以用了。")
+    t = config.trans_client().add_torrent(torrent_url) # TODO wait response https://github.com/trim21/transmission-rpc/issues/262
     with Connection() as conn:
-        conn.download_assign(torrent_url, t.id)
+        conn.download_assign(torrent_url, t.torrent_file)
 
     output.toast(f"已添加")
     await asyncio.sleep(.5)
@@ -38,7 +39,8 @@ async def delete_confirm(title: str, id: int, torrent_url: str):
     if config.debug.without_transmission:
         output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
-    trans_rss_logger.info(f"delete transmission torrent {id} {title} {torrent_url}")
+    trans_rss_logger.info(
+        f"delete transmission torrent {id} {title} {torrent_url}")
     with Connection() as conn:
         conn.download_assign(torrent_url, None)
     config.trans_client().remove_torrent(id, True)
@@ -65,7 +67,7 @@ async def delete_download(title: str, id: int, torrent_url: str):
 @catcher
 async def manage_subscribe_page():
     generate_header()
-    table = ["标题 下载链接 下载日期 下载id 下载状态 操作".split()]
+    table = ["标题 下载链接 下载日期 下载状态 操作".split()]
 
     name = await session.eval_js("new URLSearchParams(window.location.search).get('name')")
     if not name:
@@ -78,24 +80,18 @@ async def manage_subscribe_page():
         output.put_markdown(f"# [{name}]({sub.url}) 的订阅")
         if not config.debug.without_transmission:
             trans_client = config.trans_client()
+            torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
         async for title, url, torrent_url, description, clear in subscribe_and_cache(sub):
             row = [
                 output.put_link(title, url),
                 output.put_link("种子", torrent_url)
             ]
             download = conn.download_get(torrent_url)
-            if download:
+            if download:  
                 row.append(output.put_text(str(download.dt)))
-                torrent = None
-                try:
-                    if download.id is not None:
-                        torrent = trans_client.get_torrent(download.id)
-                except:
-                    if not config.debug.without_transmission:
-                        conn.download_assign(torrent_url, None)
+                torrent = torrents.get(download.local_torrent, None)
                 if torrent is not None:
                     row.extend([
-                        output.put_text(download.id),
                         output.put_text(torrent.status, torrent.progress),
                         output.put_buttons([
                             {
@@ -106,15 +102,14 @@ async def manage_subscribe_page():
                         ],
                             [
                                 partial(delete_download, title,
-                                        download.id, torrent_url)
+                                        torrent.id, torrent_url)
                         ])
                     ])
                 else:
                     row.extend([
-                        output.put_text("-"),
-                        output.put_text("-"),
+                        output.put_text("未链接"),
                         output.put_button(
-                            "添加下载/获取id", partial(get_id, title, torrent_url))
+                            "添加/获取下载", partial(get_id, title, torrent_url))
                     ])
             else:
                 row.extend([

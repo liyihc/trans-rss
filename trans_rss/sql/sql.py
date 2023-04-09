@@ -18,7 +18,7 @@ class Subscribe(BaseModel):
 class DownloadTorrent(BaseModel):
     url: str
     dt: datetime
-    id: Union[int, None]
+    local_torrent: Union[str, None]
 
 
 class _Sql:
@@ -43,7 +43,7 @@ CREATE TABLE subscribe(
 CREATE TABLE downloaded(
     url VARCHAR(256) PRIMARY KEY,
     dt datetime,
-    id INT) """)
+    local_torrent VARCHAR(256)) """)
 
             conn.execute('INSERT INTO infos VALUES("version", "0.3.0")')
             conn.commit()
@@ -67,15 +67,15 @@ CREATE TABLE downloaded(
         ret = cursor.fetchone()
         return Subscribe(**ret)
 
-    def download_add(self, url: str, torrent_id: Union[int, None] = None):
+    def download_add(self, url: str, local_torrent: Union[str, None] = None):
         self.conn.execute(
             "INSERT INTO downloaded VALUES(?,?,?)",
-            (url, str(datetime.now().replace(microsecond=0)), torrent_id))
+            (url, str(datetime.now().replace(microsecond=0)), local_torrent))
         self.conn.commit()
 
-    def download_assign(self, url: str, torrent_id: Union[int, None] = None):
+    def download_assign(self, url: str, local_torrent: Union[str, None] = None):
         self.conn.execute(
-            "UPDATE downloaded SET id = ? WHERE url = ?", (torrent_id, url))
+            "UPDATE downloaded SET local_torrent = ? WHERE url = ?", (local_torrent, url))
         self.conn.commit()
 
     def download_exist(self, url: str):
@@ -85,7 +85,7 @@ CREATE TABLE downloaded(
 
     def download_get(self, url: str):
         cursor = self.conn.execute(
-            "SELECT url, dt, id FROM downloaded WHERE url = ?", (url, ))
+            "SELECT url, dt, local_torrent FROM downloaded WHERE url = ?", (url, ))
         row = cursor.fetchone()
         if row:
             return DownloadTorrent(**row)
