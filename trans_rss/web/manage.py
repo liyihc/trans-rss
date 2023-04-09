@@ -24,6 +24,7 @@ async def get_id(title: str, torrent_url: str):
         output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
     trans_rss_logger.info(f"add transmission torrent {title} {torrent_url}")
+    output.toast("向transmission-rpc提交了一个功能请求，请求抛出异常的时候同时抛出数据，在他们回复之后这个功能就可以用了。")
     t = config.trans_client().add_torrent(torrent_url) # TODO wait response https://github.com/trim21/transmission-rpc/issues/262
     with Connection() as conn:
         conn.download_assign(torrent_url, t.torrent_file)
