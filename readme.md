@@ -3,6 +3,7 @@
 订阅、管理番剧，并在下载新番时，通过webhook（例如飞书）推送到手机和电脑，提醒赶快看番。
 
 - 没有transmissoin服务也可以运行。此时单独起推送通知的作用。
+- 现在nyaa使用有问题！会尽快修复。https://github.com/liyihc/trans-rss/issues/5#issue-1664541402
 
 # 使用docker运行
 
