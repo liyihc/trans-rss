@@ -45,7 +45,7 @@ CREATE TABLE downloaded(
     dt datetime,
     local_torrent VARCHAR(256)) """)
 
-            conn.execute('INSERT INTO infos VALUES("version", "0.3.0")')
+            conn.execute('INSERT INTO infos VALUES("version", "0.5.2")')
             conn.commit()
 
     def subscribe(self, name: str, url: str):
