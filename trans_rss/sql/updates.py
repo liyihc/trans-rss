@@ -2,6 +2,7 @@ from sqlite3 import Connection
 from packaging.version import Version
 from ..logger import trans_rss_logger, exception_logger
 
+version = "0.5.2"
 
 def update_to_0_3_0(conn: Connection):
     conn.execute("ALTER TABLE downloaded ADD id INT")
@@ -23,6 +24,8 @@ updaters = [
     (Version("0.3.0"), update_to_0_3_0),
     (Version("0.5.2"), update_to_0_5_2)
 ]
+
+assert Version(version) == updaters[-1][0]
 
 
 def update(conn: Connection):

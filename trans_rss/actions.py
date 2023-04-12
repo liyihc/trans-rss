@@ -41,8 +41,15 @@ async def subscribe(sub: Subscribe):
     client = AsyncHTTPClient()
     page = 1
     retry = 0
+    url = sub.url
+    r = urlparse(url)
+    if r.query:
+        url += "&page="
+    else:
+        url += "?page="
+
     while True:
-        resp = await client.fetch(f"{sub.url}&page={page}")
+        resp = await client.fetch(f"{url}{page}")
         hostname = urlparse(sub.url).hostname
         match resp.code:
             case 500:  # page end
@@ -60,6 +67,8 @@ async def subscribe(sub: Subscribe):
                 retry += 1
                 if retry == 10:
                     return
+        if not config.auto_page:
+            return
 
 
 async def broadcast(name: str, title: str, torrent: str):

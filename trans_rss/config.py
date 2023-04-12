@@ -40,6 +40,7 @@ class Config(BaseModel):
     base_folder: str = "/downloads/complete"
     debug: Debug = Debug()
     without_transmission: bool = True
+    auto_page: bool = False
     config_version: str = "0.1.1"
 
     def trans_client(self, timeout=30):

@@ -195,6 +195,9 @@ async def wait_update_configs():
             "轮询时间（分钟）", input.NUMBER, name="subscribe_minutes",
             value=config.subscribe_minutes
         ),
+        input.radio("自动翻页", name="auto_page",
+                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    value=config.auto_page, help_text="不同种子站的翻页规则不一致，之后会添加不同站的翻页支持"),
         input.input(
             "时区", datalist=pytz.all_timezones, name="timezone",
             value=config.timezone, validate=lambda v: None if v in pytz.all_timezones else "时区错误"),

@@ -125,7 +125,7 @@ async def subscribe_page():
             [
                 input.input("名称", name="name"),
                 input.input("链接", input.URL, name="url",
-                            help_text="目前仅支持acg.rip的RSS订阅")
+                            help_text="")
             ]
         )
 
