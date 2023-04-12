@@ -84,7 +84,7 @@ lock = asyncio.Lock()
 
 async def update(notifier: Callable[[str], None] = None):
     async with lock:
-        if not config.debug.without_transmission:
+        if not config.without_transmission:
             trans_client = config.trans_client()
         with Connection() as conn:
             names = set()
@@ -114,7 +114,7 @@ async def update(notifier: Callable[[str], None] = None):
                     print("download", sub.name, title, torrent)
                     update_logger.info(
                         f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
-                    if not config.debug.without_transmission:
+                    if not config.without_transmission:
                         t = trans_client.add_torrent(
                             torrent, download_dir=config.join(sub.name))
                         await asyncio.sleep(1)

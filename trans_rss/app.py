@@ -44,10 +44,16 @@ app.mount("/web", webio_app)
 @app.on_event("startup")
 async def test_transmission():
     with Connection() as conn:
-        pass
-    if not config.debug.without_transmission:
-        client = config.trans_client()
-        client.get_torrents(timeout=2)
+        pass # test db
+    if not config.without_transmission:
+        try: # tes transmission
+            client = config.trans_client()
+            client.get_torrents(timeout=2)
+        except Exception as e:
+            exception_logger.exception(str(e), stack_info=True)
+            config.without_transmission = True
+
+
 
 
 @app.get("/api/test-sql")

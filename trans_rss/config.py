@@ -14,7 +14,7 @@ version = (Path(__file__).parent / "version").read_text()
 
 
 class Debug(BaseModel):
-    without_transmission: bool = False
+    pass
 
 
 class Webhook(BaseModel):
@@ -39,7 +39,8 @@ class Config(BaseModel):
     timezone: str = "Asia/Shanghai"
     base_folder: str = "/downloads/complete"
     debug: Debug = Debug()
-    config_version: Literal["0.1.0"] = "0.1.0"
+    without_transmission: bool = True
+    config_version: str = "0.1.1"
 
     def trans_client(self, timeout=30):
         return transmission_rpc.Client(
@@ -91,6 +92,7 @@ def update_config(obj: dict):
     for to_ver, updater in updaters:
         if to_ver > ver:
             updater(ret)
+    ret.pop(CONFIG_VERSION)
     return ret
 
 
@@ -104,8 +106,14 @@ def update_to_0_1_0(obj: dict):
     obj["webhooks"] = webhooks
 
 
+def update_to_0_1_1(obj: dict):
+    obj["without_transmission"] = obj.get(
+        "debug", {}).get("without_transmission", True)
+
+
 updaters = [
-    (Version("0.1.0"), update_to_0_1_0)
+    (Version("0.1.0"), update_to_0_1_0),
+    (Version("0.1.1"), update_to_0_1_1)
 ]
 
 if config_path.exists():

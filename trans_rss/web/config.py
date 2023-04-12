@@ -175,6 +175,9 @@ async def webhooks_action(action: str):
 
 async def wait_update_configs():
     data: Dict[str, Any] = await input.input_group("", [
+        input.radio("独立使用", name="without_transmission",
+                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    value=config.without_transmission, help_text="若为“是”，则会停止操作transmission。每次启动时会检查与transmission的连接性"),
         input.input(
             "transmission host", name="transmission_host",
             value=config.transmission_host),

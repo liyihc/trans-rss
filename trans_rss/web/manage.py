@@ -22,7 +22,7 @@ async def refresh():  # TODO: remove refresh
 
 @catcher
 async def get_id(title: str, torrent_url: str):
-    if config.debug.without_transmission:
+    if config.without_transmission:
         output.toast("位于debug模式，无法操纵transmission", color='warn')
         return
     client = config.trans_client()
@@ -59,7 +59,7 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
             confirm = await input.actions(f"确定删除 {title} 吗", [button("确定", True, "danger"), button("取消", False, "success")])
             if not confirm:
                 return
-            if config.debug.without_transmission:
+            if config.without_transmission:
                 output.toast("位于debug模式，无法操纵transmission", color='warn')
                 return
             logger.manual("delete", torrent_url, title)
@@ -86,9 +86,11 @@ async def manage_subscribe_page():
     with Connection() as conn:
         sub = conn.subscribe_get(name)
         output.put_markdown(f"# [{name}]({sub.url}) 的订阅")
-        if not config.debug.without_transmission:
+        if not config.without_transmission:
             trans_client = config.trans_client()
             torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
+        else:
+            torrents = {}
         async for title, url, torrent_url, description, clear in subscribe_and_cache(sub):
             row = [
                 output.put_link(title, url),
