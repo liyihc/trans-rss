@@ -15,7 +15,7 @@ from ..sql import Connection, Subscribe
 from .common import catcher, generate_header, button
 
 
-async def refresh():  # TODO: remove refresh
+async def refresh(): 
     await asyncio.sleep(.5)
     session.run_js("location.reload()")
 
@@ -23,11 +23,14 @@ async def refresh():  # TODO: remove refresh
 @catcher
 async def get_id(title: str, torrent_url: str):
     if config.without_transmission:
-        output.toast("位于debug模式，无法操纵transmission", color='warn')
+        output.toast("当前为独立模式，无法操纵transmission", color='warn')
         return
     client = config.trans_client()
     try:
         torrent = client.add_torrent(torrent_url, paused=True)
+
+        await asyncio.sleep(1)
+        torrent = client.get_torrent(torrent.id)
 
         logger.manual("download", torrent_url, title)
         output.toast(f"添加新任务 {title}，请手动开始")
@@ -60,7 +63,7 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
             if not confirm:
                 return
             if config.without_transmission:
-                output.toast("位于debug模式，无法操纵transmission", color='warn')
+                output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
             logger.manual("delete", torrent_url, title)
             with Connection() as conn:

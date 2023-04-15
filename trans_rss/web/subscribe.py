@@ -3,17 +3,20 @@ from functools import partial
 import pywebio
 from pywebio import input, output, session
 
-from .. import actions, config
+from .. import actions
 from ..sql import Connection, Subscribe
 from ..common import SubStatus, status
+from ..config import config
 
 from .common import button, generate_header, catcher
+from .manage import subscribe_and_cache
 from trans_rss import logger
 
 
-async def update():
+async def update(sub: Subscribe = None):
     cnt = 0
-    async for name, title in actions.update(output.toast):
+    async for name, title in actions.update(output.toast) \
+            if sub is None else actions.update_one(sub, output.toast):
         cnt += 1
         output.toast(f"订阅 {name} 下载 {title}")
         await asyncio.sleep(0.5)
@@ -26,12 +29,36 @@ async def update():
 
 @catcher
 async def subscribe_del(name: str, url: str):
-    confirm = await input.actions(f"确定删除订阅 {name} 吗", [button("确定", True, "danger"), button("取消", False, "secondary")])
+    confirm = await input.actions(
+        f"确定删除订阅 {name} 吗",
+        [
+            button("确定并同时删除种子", 2, "danger"),
+            button("确定", 1, "danger"), button("取消", 0, "secondary")])
     if confirm:
+        if confirm == 2:
+            if config.without_transmission:
+                output.toast("当前为独立模式，无法操纵transmission", color='warn')
+                return
+
         with Connection() as conn:
-            logger.subscribe("delete", name, url)
+            sub = conn.subscribe_get(name)
+            if confirm == 2:
+                logger.subscribe("delete-file", name, sub.url)
+                trans_client = config.trans_client()
+                torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
+                async for title, url, torrent_url , description, _ in subscribe_and_cache(sub):
+                    download = conn.download_get(torrent_url)
+                    torrent = torrents.get(download.local_torrent, None)
+                    if torrent is None:
+                        output.toast(f"未找到对应的种子，跳过：{title}")
+                    else:
+                        trans_client.remove_torrent(torrent.id, delete_data=True)
+                        output.toast(f"已删除对应的种子及文件：{title}", color="success")
+                        logger.manual("delete", torrent_url, title)
+
+            logger.subscribe("delete", name, sub.url)
             conn.subscribe_del(name)
-            output.toast(f"删除 {name}", color="success")
+            output.toast(f"删除订阅 {name}", color="success")
         generate_sub_table()
 
 
@@ -41,7 +68,7 @@ async def subscribe_all(sub: Subscribe):
         logger.subscribe("add", sub.name, sub.url)
         conn.subscribe(sub.name, sub.url)
         output.toast(f"添加订阅 {sub.name}")
-    await update()
+    await update(sub)
     generate_sub_table()
 
 
@@ -58,7 +85,7 @@ async def subscribe_to(sub: Subscribe, url: str):
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub.name, sub.url)
-    await update()
+    await update(sub)
     session.go_app("sub-list", False)
 
 

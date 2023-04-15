@@ -27,3 +27,10 @@ Change the config file and start this container
 
 If your transmission is also running in docker, please add `--link <name or id>:transmission` to docker run command and use `transmission` as your transmission host in trans-rss configs. Or you need not add the command, just use `172.17.0.1` as the transmission host, which is host IP for containers in docker.
 
+
+# road map 路线图
+
+- 由于pywebio的机制，需要在新线程以发起http请求
+  - 出错时同样发通知提醒（在设置中进行启动）
+- 定制化不同订阅源的翻页机制
+- 考虑加入对aria2的支持（通过aria2p）
