@@ -23,7 +23,7 @@ async def refresh():
 @catcher
 async def get_id(title: str, torrent_url: str):
     if config.without_transmission:
-        output.toast("位于debug模式，无法操纵transmission", color='warn')
+        output.toast("当前为独立模式，无法操纵transmission", color='warn')
         return
     client = config.trans_client()
     try:
@@ -63,7 +63,7 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
             if not confirm:
                 return
             if config.without_transmission:
-                output.toast("位于debug模式，无法操纵transmission", color='warn')
+                output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
             logger.manual("delete", torrent_url, title)
             with Connection() as conn:
