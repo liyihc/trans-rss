@@ -1,5 +1,10 @@
 # update logs
 
+## 0.5.7
+
+- error when add download manually
+- only download specific subscribe when add subscribe
+
 ## 0.5.3 2023-04-09
 
 - get local file by try torrent and catch exception
