@@ -4,6 +4,7 @@
 
 - error when add download manually
 - only download specific subscribe when add subscribe
+- able to delete sub & files
 
 ## 0.5.3 2023-04-09
 
