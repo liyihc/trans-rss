@@ -11,9 +11,10 @@ from .common import button, generate_header, catcher
 from trans_rss import logger
 
 
-async def update():
+async def update(sub: Subscribe = None):
     cnt = 0
-    async for name, title in actions.update(output.toast):
+    async for name, title in actions.update(output.toast) \
+            if sub is None else actions.update_one(sub, output.toast):
         cnt += 1
         output.toast(f"订阅 {name} 下载 {title}")
         await asyncio.sleep(0.5)
@@ -41,7 +42,7 @@ async def subscribe_all(sub: Subscribe):
         logger.subscribe("add", sub.name, sub.url)
         conn.subscribe(sub.name, sub.url)
         output.toast(f"添加订阅 {sub.name}")
-    await update()
+    await update(sub)
     generate_sub_table()
 
 
@@ -58,7 +59,7 @@ async def subscribe_to(sub: Subscribe, url: str):
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub.name, sub.url)
-    await update()
+    await update(sub)
     session.go_app("sub-list", False)
 
 

@@ -2,7 +2,8 @@ import asyncio
 from typing import Callable, Generator, Iterable, List, Tuple
 from urllib.parse import urlparse
 from xml.dom.minidom import parseString, Element as XmlElement, Attr as XmlAttr, Document as XmlDocument
-import json
+
+import transmission_rpc
 
 from trans_rss import subscribe_types
 from .sql import Subscribe, Connection
@@ -77,7 +78,8 @@ async def broadcast(name: str, title: str, torrent: str):
     for webhook in config.webhooks:
         if not webhook.enabled:
             continue
-        body = webhook_types.format(webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
+        body = webhook_types.format(
+            webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
         resp = await client.fetch(
             webhook.url, method="POST", headers={'Content-Type': 'application/json'},
             body=body)
@@ -86,56 +88,68 @@ async def broadcast(name: str, title: str, torrent: str):
             logger.webhook_noti_success(webhook.type, webhook.url, resp.code)
         else:
             success = False
-            logger.webhook_noti_failed(webhook.type, webhook.url, resp.code, body)
+            logger.webhook_noti_failed(
+                webhook.type, webhook.url, resp.code, body)
     return success
 
 lock = asyncio.Lock()
 
+
+async def update_one(sub: Subscribe, notifier: Callable[[str], None] = None, trans_client:transmission_rpc.Client=None):
+    with Connection() as conn:
+        update_logger.info(
+            f"subscribe name: {sub.name} url: {sub.url}")
+        print("subscribe", sub.name, sub.url)
+        if notifier:
+            notifier(f"正在查找 {sub.name}")
+        first = True
+        l: List[Tuple[str, str, str]] = []
+        async for title, link, torrent, description in subscribe(sub):
+            if first:
+                status_update(sub.name, title, link, torrent)
+                first = False
+            if conn.download_exist(torrent):
+                print("torrent exist:", sub.name, title, torrent)
+                print("subscribe stop", sub.name)
+                update_logger.info(
+                    f"subscribe stop because exist name: {sub.name} title: {title} link: {link} torrent: {torrent}")
+                if notifier:
+                    notifier(f"订阅 {sub.name} 存在 {title}")
+                break
+            print("find", sub.name, title, torrent)
+            l.append((title, link, torrent))
+        for title, link, torrent in reversed(l):
+            print("download", sub.name, title, torrent)
+            update_logger.info(
+                f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
+            if not config.without_transmission:
+                trans_client = trans_client or config.trans_client()
+                t = trans_client.add_torrent(
+                    torrent, download_dir=config.join(sub.name))
+                await asyncio.sleep(1)
+                t = trans_client.get_torrent(t.id)
+                try:
+                    conn.download_add(torrent, t.torrent_file)
+                except:
+                    conn.download_add(torrent)
+            else:
+                conn.download_add(torrent)
+            await broadcast(sub.name, title, torrent)
+            yield sub.name, title
+
+
+
+
 async def update(notifier: Callable[[str], None] = None):
     async with lock:
-        if not config.without_transmission:
-            trans_client = config.trans_client()
+        trans_client = None if config.without_transmission else config.trans_client()
         with Connection() as conn:
             names = set()
             for sub in conn.subscribe_list():
                 names.add(sub.name)
-                update_logger.info(f"subscribe name: {sub.name} url: {sub.url}")
-                print("subscribe", sub.name, sub.url)
-                if notifier:
-                    notifier(f"正在查找 {sub.name}")
-                first = True
-                l: List[Tuple[str, str, str]] = []
-                async for title, link, torrent, description in subscribe(sub):
-                    if first:
-                        status_update(sub.name, title, link, torrent)
-                        first = False
-                    if conn.download_exist(torrent):
-                        print("torrent exist:", sub.name, title, torrent)
-                        print("subscribe stop", sub.name)
-                        update_logger.info(
-                            f"subscribe stop because exist name: {sub.name} title: {title} link: {link} torrent: {torrent}")
-                        if notifier:
-                            notifier(f"订阅 {sub.name} 存在 {title}")
-                        break
-                    print("find", sub.name, title, torrent)
-                    l.append((title, link, torrent))
-                for title, link, torrent in reversed(l):
-                    print("download", sub.name, title, torrent)
-                    update_logger.info(
-                        f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
-                    if not config.without_transmission:
-                        t = trans_client.add_torrent(
-                            torrent, download_dir=config.join(sub.name))
-                        await asyncio.sleep(1)
-                        t = trans_client.get_torrent(t.id)
-                        try:
-                            conn.download_add(torrent, t.torrent_file)
-                        except:
-                            conn.download_add(torrent)
-                    else:
-                        conn.download_add(torrent)
-                    await broadcast(sub.name, title, torrent)
-                    yield sub.name, title
+                async for it in update_one(sub, notifier, trans_client):
+                    yield it
+
             for k in list(status.keys()):
                 if k not in names:
                     status.pop(k)

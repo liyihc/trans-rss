@@ -15,7 +15,7 @@ from ..sql import Connection, Subscribe
 from .common import catcher, generate_header, button
 
 
-async def refresh():  # TODO: remove refresh
+async def refresh(): 
     await asyncio.sleep(.5)
     session.run_js("location.reload()")
 
@@ -28,6 +28,9 @@ async def get_id(title: str, torrent_url: str):
     client = config.trans_client()
     try:
         torrent = client.add_torrent(torrent_url, paused=True)
+
+        await asyncio.sleep(1)
+        torrent = client.get_torrent(torrent.id)
 
         logger.manual("download", torrent_url, title)
         output.toast(f"添加新任务 {title}，请手动开始")
