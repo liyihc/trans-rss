@@ -6,6 +6,10 @@
 - only download specific subscribe when add subscribe
 - able to delete sub & files
 
+## 0.5.6 2023-04-12
+
+- disable auto-page config
+
 ## 0.5.3 2023-04-09
 
 - get local file by try torrent and catch exception
