@@ -1,6 +1,10 @@
 # update logs
 
-## 0.5.7
+## 0.5.8 2023-04-16
+
+- change to request in another thread
+
+## 0.5.7 2023-04-15
 
 - error when add download manually
 - only download specific subscribe when add subscribe

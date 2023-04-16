@@ -10,6 +10,7 @@ from pywebio import input, output, pin, session
 
 from trans_rss import webhook_types
 from trans_rss import logger
+from trans_rss.common import run_in_thread
 
 from ..config import Config, Webhook, config
 from . import common
@@ -96,6 +97,20 @@ async def generate_webhooks():
         output.put_table(table)
 
 
+def webhook_noti(type:str, url: str, body: bytes):
+    try:
+        resp = requests.post(
+            url, headers={"Content-Type": "application/json"}, data=body, timeout=3)
+        if 200 <= resp.status_code <= 299:
+            logger.webhook_noti_success(type, url, resp.status_code)
+            return True, resp.text
+        else:
+            logger.webhook_noti_failed(type, url, resp.status_code, body)
+            return False, resp.text
+    except Exception as e:
+        return False, str(e)
+
+
 @catcher
 async def webhook_action(index: int, action: str):
     local_webhooks = local_webhooks_get()
@@ -107,28 +122,10 @@ async def webhook_action(index: int, action: str):
             await asyncio.sleep(1)
             body = webhook_types.format(
                 type, "测试 webhook 标题", "测试 webhook 订阅", "https://github.com/liyihc/trans-rss")
-            succ = False
-            msg = ""
-            try:
-                resp = await asyncio.to_thread(
-                    requests.post,
-                    url, headers={ "Content-Type": "application/json"}, data=body, timeout=3)
-                if 200 <= resp.status_code <= 299:
-                    succ = True
-                else:
-                    succ = False
-                msg = resp.text
-            except Exception as e:
-                msg = str(e)
+            succ, msg = await run_in_thread(partial(webhook_noti, type, url, body))
             if succ:
-                logger.webhook_noti_success(type, url, resp.status_code)
                 output.toast(f"通知成功: {type} {url}\n{msg}", color="success")
             else:
-                try:
-                    code = resp.status_code
-                except:
-                    code = 0
-                logger.webhook_noti_failed(type, url, code, body)
                 output.toast(f"通知失败: {url}\n{msg}", duration=0, color="error")
         case "delete":
             webhook = local_webhooks.pop(index)

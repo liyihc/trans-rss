@@ -5,7 +5,7 @@ from pywebio import input, output, session
 
 from .. import actions
 from ..sql import Connection, Subscribe
-from ..common import SubStatus, status
+from ..common import SubStatus, iter_in_thread, status
 from ..config import config
 
 from .common import button, generate_header, catcher
@@ -45,14 +45,16 @@ async def subscribe_del(name: str, url: str):
             if confirm == 2:
                 logger.subscribe("delete-file", name, sub.url)
                 trans_client = config.trans_client()
-                torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
-                async for title, url, torrent_url , description, _ in subscribe_and_cache(sub):
+                torrents = {
+                    t.torrent_file: t for t in trans_client.get_torrents()}
+                async for title, url, torrent_url, description, _ in subscribe_and_cache(sub):
                     download = conn.download_get(torrent_url)
                     torrent = torrents.get(download.local_torrent, None)
                     if torrent is None:
                         output.toast(f"未找到对应的种子，跳过：{title}")
                     else:
-                        trans_client.remove_torrent(torrent.id, delete_data=True)
+                        trans_client.remove_torrent(
+                            torrent.id, delete_data=True)
                         output.toast(f"已删除对应的种子及文件：{title}", color="success")
                         logger.manual("delete", torrent_url, title)
 
@@ -159,7 +161,7 @@ async def subscribe_page():
         sub = Subscribe(**data)
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
-        async for item in actions.subscribe(sub):
+        async for item in iter_in_thread(actions.subscribe, sub):
             if conn.download_exist(item.torrent):
                 output.put_row(
                     [

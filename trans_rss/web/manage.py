@@ -8,6 +8,8 @@ import pywebio
 from pydantic import BaseModel
 from pywebio import input, output, session
 
+from trans_rss.common import iter_in_thread
+
 from .. import actions
 from ..config import config
 from .. import logger
@@ -21,13 +23,13 @@ async def refresh():
 
 
 @catcher
-async def get_id(title: str, torrent_url: str):
+async def get_id(title: str, torrent_url: str, dir:str):
     if config.without_transmission:
         output.toast("当前为独立模式，无法操纵transmission", color='warn')
         return
     client = config.trans_client()
     try:
-        torrent = client.add_torrent(torrent_url, paused=True)
+        torrent = client.add_torrent(torrent_url, download_dir=, paused=True)
 
         await asyncio.sleep(1)
         torrent = client.get_torrent(torrent.id)
@@ -118,7 +120,7 @@ async def manage_subscribe_page():
                     row.extend([
                         output.put_text("未链接"),
                         output.put_button(
-                            "添加/获取下载", partial(get_id, item.title, item.torrent))
+                            "添加/获取下载", partial(get_id, item.title, item.torrent, config.join(sub.name)))
                     ])
             else:
                 row.extend([
@@ -152,7 +154,7 @@ async def subscribe_and_cache(sub: Subscribe):
                 yield False, ret
     cache = Cache(dt=now, rets=[])
     if need_sub:
-        async for ret in actions.subscribe(sub):
+        async for ret in iter_in_thread(actions.subscribe, sub):
             cache.rets.append(ret)
             yield True, ret
         caches[sub.url] = cache
