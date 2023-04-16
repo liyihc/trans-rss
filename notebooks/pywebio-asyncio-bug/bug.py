@@ -1,5 +1,4 @@
-import httpx
-import aiohttp
+import asyncio
 from pywebio import start_server
 from tornado.httpclient import AsyncHTTPClient
 
@@ -13,6 +12,7 @@ async def test_tornado():
 
 async def test_httpx():
     try:
+        import httpx
         async with httpx.AsyncClient() as c:
             await c.get("http://www.baidu.com")
     except Exception as e:
@@ -20,6 +20,7 @@ async def test_httpx():
 
 async def test_aiohttp():
     try:
+        import aiohttp
         async with aiohttp.ClientSession(timeout=1) as session:
             async with session.get("http://www.baidu.com", timeout=1) as response:
                 print(response.status)
@@ -28,5 +29,25 @@ async def test_aiohttp():
         print("catch error")
         raise
 
+async def a_raise_error():
+    raise ValueError("123")
 
-start_server([test_tornado, test_httpx, test_aiohttp], 8080)
+async def test_async():
+    try:
+        await a_raise_error()
+    except:
+        print("catch error")
+        raise
+
+def raise_error():
+    raise ValueError("123")
+
+async def test_run_in_thread():
+    try:
+        await asyncio.to_thread(raise_error)
+    except:
+        print("catch error")
+        raise
+    
+
+start_server([test_tornado, test_httpx, test_aiohttp, test_async, test_run_in_thread], 8080)

@@ -67,7 +67,7 @@ async def subscribe(sub: Subscribe):
     with ThreadPoolExecutor(1) as pool:
         loop = asyncio.get_running_loop()
         while True:
-            resp = await loop.run_in_executor(pool, requests.get, f"{url}{page}")
+            resp = await loop.run_in_executor(pool, requests.get, f"{url}{page}") # TODO: pywebio bug
             hostname = urlparse(sub.url).hostname
             match resp.status_code:
                 case 500:  # page end
