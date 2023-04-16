@@ -29,7 +29,7 @@ async def get_id(title: str, torrent_url: str, dir:str):
         return
     client = config.trans_client()
     try:
-        torrent = client.add_torrent(torrent_url, download_dir=, paused=True)
+        torrent = client.add_torrent(torrent_url, download_dir=dir, paused=True)
 
         await asyncio.sleep(1)
         torrent = client.get_torrent(torrent.id)
