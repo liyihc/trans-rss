@@ -21,7 +21,10 @@ _list_type = list
 def iter_node(node: Element, path: list = []) -> Generator[Tuple[Element, List[Tuple[Actions, str]]], None, None]:
     child: Element
     for child in node.childNodes:
-        if child.nodeType != child.TEXT_NODE:
+        if child.nodeType == child.ELEMENT_NODE:
+            v = getattr(child, "tagName", None)
+            if v is None:
+                continue
             p = path + [("Node", child.tagName)]
             yield child, p
             yield from iter_node(child, p)
@@ -36,10 +39,11 @@ def iter_xml(node: Element) -> Generator[str, None, None]:
 def iter_plain(node: Element) -> Generator[str, None, None]:
     child: Element
     for child in node.childNodes:
-        if child.nodeType != child.TEXT_NODE:
-            yield from iter_plain(child)
-        else:
-            yield child.data
+        match child.nodeType:
+            case child.ELEMENT_NODE:
+                yield from iter_plain(child)
+            case child.TEXT_NODE | child.CDATA_SECTION_NODE:
+                yield child.data
 
 
 def _get_text(node: Element, path: List[Tuple[Actions, Union[str, None]]], default):

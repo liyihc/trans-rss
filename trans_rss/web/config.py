@@ -7,7 +7,6 @@ import pytz
 import pywebio
 import requests
 from pywebio import input, output, pin, session
-from tornado.httpclient import AsyncHTTPClient
 
 from trans_rss import webhook_types
 from trans_rss import logger
@@ -111,9 +110,9 @@ async def webhook_action(index: int, action: str):
             succ = False
             msg = ""
             try:
-                resp = requests.post(
-                    url, headers={"Content-Type": "application/json"},
-                    data=body, timeout=3)
+                resp = await asyncio.to_thread(
+                    requests.post,
+                    url, headers={ "Content-Type": "application/json"}, data=body, timeout=3)
                 if 200 <= resp.status_code <= 299:
                     succ = True
                 else:
@@ -176,7 +175,8 @@ async def webhooks_action(action: str):
 async def wait_update_configs():
     data: Dict[str, Any] = await input.input_group("", [
         input.radio("独立使用", name="without_transmission",
-                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    options=[{"label": "是", "value": True},
+                             {"label": "否", "value": False}],
                     value=config.without_transmission, help_text="若为“是”，则会停止操作transmission。每次启动时会检查与transmission的连接性"),
         input.input(
             "transmission host", name="transmission_host",
@@ -196,7 +196,8 @@ async def wait_update_configs():
             value=config.subscribe_minutes
         ),
         input.radio("自动翻页", name="auto_page",
-                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    options=[{"label": "是", "value": True},
+                             {"label": "否", "value": False}],
                     value=config.auto_page, help_text="不同种子站的翻页规则不一致，之后会添加不同站的翻页支持"),
         input.input(
             "时区", datalist=pytz.all_timezones, name="timezone",

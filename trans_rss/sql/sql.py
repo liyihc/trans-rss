@@ -95,5 +95,5 @@ CREATE TABLE downloaded(
 @contextmanager
 def Connection():
     exist = sql_path.exists()
-    with sqlite3.Connection(sql_path) as conn:
+    with sqlite3.Connection(sql_path, check_same_thread=False) as conn:
         yield _Sql(conn, exist)

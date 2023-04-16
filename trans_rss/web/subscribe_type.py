@@ -1,3 +1,4 @@
+import asyncio
 from copy import deepcopy
 from functools import partial
 from typing import Generator, Iterable, List, Literal, Tuple, TypeVar, Union
@@ -146,7 +147,7 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_edit():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                resp = requests.get(url)
+                resp = await asyncio.to_thread(requests.get, url, timeout=3)
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element
                 item = doml.getElementsByTagName("item")[0]
@@ -194,7 +195,7 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_test():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                resp = requests.get(url)
+                resp = await asyncio.to_thread(requests.get, url, timeout=3) # will catch by pywebio
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element
                 put_table_for_test(

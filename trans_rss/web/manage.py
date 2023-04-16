@@ -94,12 +94,12 @@ async def manage_subscribe_page():
             torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
         else:
             torrents = {}
-        async for title, url, torrent_url, description, clear in subscribe_and_cache(sub):
+        async for clear, item in subscribe_and_cache(sub):
             row = [
-                output.put_link(title, url),
-                output.put_link("种子", torrent_url)
+                output.put_link(item.title, item.gui),
+                output.put_link("种子", item.torrent)
             ]
-            download = conn.download_get(torrent_url)
+            download = conn.download_get(item.torrent)
             if download:
                 row.append(output.put_text(str(download.dt)))
                 torrent = torrents.get(download.local_torrent, None)
@@ -111,14 +111,14 @@ async def manage_subscribe_page():
                                 "停止", "stop", "danger"),
                             button("删除", "delete", "danger"),
                         ],
-                            partial(manage_download, title,
-                                    torrent.id, torrent_url),)
+                            partial(manage_download, item.title,
+                                    torrent.id, item.torrent),)
                     ])
                 else:
                     row.extend([
                         output.put_text("未链接"),
                         output.put_button(
-                            "添加/获取下载", partial(get_id, title, torrent_url))
+                            "添加/获取下载", partial(get_id, item.title, item.torrent))
                     ])
             else:
                 row.extend([
@@ -134,7 +134,7 @@ async def manage_subscribe_page():
 
 class Cache(BaseModel):
     dt: datetime
-    rets: List[Tuple[str, str, str]]
+    rets: List[actions.RSSParseResult]
 
 
 caches: Dict[str, Cache] = {}
@@ -149,12 +149,12 @@ async def subscribe_and_cache(sub: Subscribe):
         if now - cache.dt < hour:
             need_sub = False
             for ret in cache.rets:
-                yield (*ret, False)
+                yield False, ret
     cache = Cache(dt=now, rets=[])
     if need_sub:
         async for ret in actions.subscribe(sub):
             cache.rets.append(ret)
-            yield (*ret, True)
+            yield True, ret
         caches[sub.url] = cache
 
     for url, cache in list(caches.items()):

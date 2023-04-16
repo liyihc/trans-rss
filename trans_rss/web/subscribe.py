@@ -15,10 +15,10 @@ from trans_rss import logger
 
 async def update(sub: Subscribe = None):
     cnt = 0
-    async for name, title in actions.update(output.toast) \
+    async for name, item in actions.update(output.toast) \
             if sub is None else actions.update_one(sub, output.toast):
         cnt += 1
-        output.toast(f"订阅 {name} 下载 {title}")
+        output.toast(f"订阅 {name} 下载 {item.title}")
         await asyncio.sleep(0.5)
     if cnt:
         output.toast(f"共添加{cnt}个新下载项", color="success")
@@ -159,20 +159,20 @@ async def subscribe_page():
         sub = Subscribe(**data)
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
-        async for title, link, torrent, description in actions.subscribe(sub):
-            if conn.download_exist(torrent):
+        async for item in actions.subscribe(sub):
+            if conn.download_exist(item.torrent):
                 output.put_row(
                     [
                         output.put_text("已下载"),
-                        output.put_link(title, link)
+                        output.put_link(item.title, item.gui)
                     ], "auto"
                 )
             else:
                 output.put_row(
                     [
                         output.put_button("下载到此截止", onclick=partial(
-                            subscribe_to, sub, torrent)),
-                        output.put_link(title, link),
+                            subscribe_to, sub, item.torrent)),
+                        output.put_link(item.gui, item.torrent),
                     ]
                 )
         output.put_button("全部订阅", onclick=sub_all)
