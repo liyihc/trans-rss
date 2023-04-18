@@ -165,7 +165,7 @@ def _update_one(sub: Subscribe):
                     _add_torrent, (conn, trans_client, item, config.join(sub.name))))
             results.append(
                 pool.apply_async(
-                    broadcast, sub.name, item.title, item.torrent))
+                    broadcast, (sub.name, item.title, item.torrent)))
 
             yield "data", sub.name, item
         pool.close()
