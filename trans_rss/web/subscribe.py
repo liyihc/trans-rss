@@ -47,16 +47,16 @@ async def subscribe_del(name: str, url: str):
                 trans_client = config.trans_client()
                 torrents = {
                     t.torrent_file: t for t in trans_client.get_torrents()}
-                async for title, url, torrent_url, description, _ in subscribe_and_cache(sub):
-                    download = conn.download_get(torrent_url)
+                async for _, item in subscribe_and_cache(sub):
+                    download = conn.download_get(item.torrent)
                     torrent = torrents.get(download.local_torrent, None)
                     if torrent is None:
-                        output.toast(f"未找到对应的种子，跳过：{title}")
+                        output.toast(f"未找到对应的种子，跳过：{item.title}")
                     else:
                         trans_client.remove_torrent(
                             torrent.id, delete_data=True)
-                        output.toast(f"已删除对应的种子及文件：{title}", color="success")
-                        logger.manual("delete", torrent_url, title)
+                        output.toast(f"已删除对应的种子及文件：{item.title}", color="success")
+                        logger.manual("delete", item.torrent, item.title)
 
             logger.subscribe("delete", name, sub.url)
             conn.subscribe_del(name)
