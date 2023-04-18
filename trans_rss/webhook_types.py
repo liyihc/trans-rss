@@ -73,6 +73,6 @@ def list():
 def remove(type: str):
     (webhook_dir / f"{type}.json").unlink(True)
     del _webhook_types[type]
-    _try_add_from_file(webhook_builtin_dir / f"{type}.json")
+    _try_add_from_file(webhook_builtin_dir / f"{type}.json", True)
 
 init()
