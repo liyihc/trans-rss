@@ -98,8 +98,8 @@ async def manage_subscribe_page():
             torrents = {}
         async for clear, item in subscribe_and_cache(sub):
             row = [
-                output.put_link(item.title, item.gui),
-                output.put_link("种子", item.torrent)
+                output.put_link(item.title, item.gui, new_window=True),
+                output.put_link("种子", item.torrent, new_window=True)
             ]
             download = conn.download_get(item.torrent)
             if download:

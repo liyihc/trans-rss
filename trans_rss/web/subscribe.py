@@ -107,9 +107,9 @@ def generate_sub_table():
                 ss = status[sub.name]
                 download = conn.download_get(ss.torrent)
                 row.extend([
-                    output.put_link(ss.title, ss.link),
+                    output.put_link(ss.title, ss.link, new_window=True),
                     output.put_link(
-                        str(download.dt if download else ""), ss.torrent),
+                        str(download.dt if download else ""), ss.torrent, new_window=True),
                     output.put_text(str(ss.query_time or ""))])
             else:
                 row.extend([
@@ -166,7 +166,7 @@ async def subscribe_page():
                 output.put_row(
                     [
                         output.put_text("已下载"),
-                        output.put_link(item.title, item.gui)
+                        output.put_link(item.title, item.gui, new_window=True)
                     ], "auto"
                 )
             else:
@@ -174,7 +174,7 @@ async def subscribe_page():
                     [
                         output.put_button("下载到此截止", onclick=partial(
                             subscribe_to, sub, item.torrent)),
-                        output.put_link(item.gui, item.torrent),
-                    ]
+                        output.put_link(item.title, item.gui, new_window=True),
+                    ], "auto"
                 )
         output.put_button("全部订阅", onclick=sub_all)
