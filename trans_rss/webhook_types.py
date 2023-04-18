@@ -13,6 +13,7 @@ from .config import webhook_dir, webhook_builtin_dir
 class WebhookType(BaseModel):
     builtin: bool = True
     body: dict = {}
+    help: str = ""
 
     @cached_property
     def template(self):

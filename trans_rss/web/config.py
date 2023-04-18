@@ -14,7 +14,7 @@ from trans_rss.common import run_in_thread
 
 from ..config import Config, Webhook, config
 from . import common
-from .common import catcher
+from .common import button, catcher
 
 
 @catcher
@@ -73,6 +73,7 @@ async def generate_webhooks():
     with output.use_scope("webhook", clear=True):
         table = ["类型 启用 链接 操作".split()]
         for ind, webhook in enumerate(local_webhooks):
+            wt = webhook_types.get(webhook.type)
             table.append([
                 pin.put_select(
                     f"webhook_type_{ind}", webhook_types.list(), value=webhook.type),
@@ -81,10 +82,10 @@ async def generate_webhooks():
                 pin.put_input(f"webhook_url_{ind}", value=webhook.url),
                 output.put_buttons(
                     [
-                        {"label": "测试", "value": "test", "color": "secondary"},
-                        {"label": "删除", "value": "delete", "color": "danger"}
+                        button("帮助", "help","secondary", disabled = not wt.help),
+                        button("测试", "test", "secondary"),
+                        button("删除", "delete", "danger")
                     ], partial(webhook_action, ind)
-
                 )
             ])
         table.append([
@@ -117,6 +118,8 @@ async def webhook_action(index: int, action: str):
     type = await pin.pin[f"webhook_type_{index}"]
     url = await pin.pin[f"webhook_url_{index}"]
     match action:
+        case "help":
+            output.toast(f"webhook {type} 的说明：{webhook_types.get(type).help}")
         case "test":
             output.toast(f"通知测试：{type} {url}")
             await asyncio.sleep(1)
