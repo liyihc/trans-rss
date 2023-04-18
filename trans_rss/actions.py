@@ -168,6 +168,7 @@ def _update_one(sub: Subscribe):
                     broadcast, sub.name, item.title, item.torrent))
 
             yield "data", sub.name, item
+        pool.close()
         pool.join()
         for result in results:
             r = result.get()
