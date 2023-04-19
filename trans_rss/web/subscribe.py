@@ -5,7 +5,7 @@ from pywebio import input, output, session
 
 from .. import actions
 from ..sql import Connection, Subscribe
-from ..common import SubStatus, status
+from ..common import SubStatus, iter_in_thread, status
 from ..config import config
 
 from .common import button, generate_header, catcher
@@ -15,10 +15,10 @@ from trans_rss import logger
 
 async def update(sub: Subscribe = None):
     cnt = 0
-    async for name, title in actions.update(output.toast) \
+    async for name, item in actions.update(output.toast) \
             if sub is None else actions.update_one(sub, output.toast):
         cnt += 1
-        output.toast(f"订阅 {name} 下载 {title}")
+        output.toast(f"订阅 {name} 下载 {item.title}")
         await asyncio.sleep(0.5)
     if cnt:
         output.toast(f"共添加{cnt}个新下载项", color="success")
@@ -45,16 +45,18 @@ async def subscribe_del(name: str, url: str):
             if confirm == 2:
                 logger.subscribe("delete-file", name, sub.url)
                 trans_client = config.trans_client()
-                torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
-                async for title, url, torrent_url , description, _ in subscribe_and_cache(sub):
-                    download = conn.download_get(torrent_url)
+                torrents = {
+                    t.torrent_file: t for t in trans_client.get_torrents()}
+                async for _, item in subscribe_and_cache(sub):
+                    download = conn.download_get(item.torrent)
                     torrent = torrents.get(download.local_torrent, None)
                     if torrent is None:
-                        output.toast(f"未找到对应的种子，跳过：{title}")
+                        output.toast(f"未找到对应的种子，跳过：{item.title}")
                     else:
-                        trans_client.remove_torrent(torrent.id, delete_data=True)
-                        output.toast(f"已删除对应的种子及文件：{title}", color="success")
-                        logger.manual("delete", torrent_url, title)
+                        trans_client.remove_torrent(
+                            torrent.id, delete_data=True)
+                        output.toast(f"已删除对应的种子及文件：{item.title}", color="success")
+                        logger.manual("delete", item.torrent, item.title)
 
             logger.subscribe("delete", name, sub.url)
             conn.subscribe_del(name)
@@ -105,9 +107,9 @@ def generate_sub_table():
                 ss = status[sub.name]
                 download = conn.download_get(ss.torrent)
                 row.extend([
-                    output.put_link(ss.title, ss.link),
+                    output.put_link(ss.title, ss.link, new_window=True),
                     output.put_link(
-                        str(download.dt if download else ""), ss.torrent),
+                        str(download.dt if download else ""), ss.torrent, new_window=True),
                     output.put_text(str(ss.query_time or ""))])
             else:
                 row.extend([
@@ -159,20 +161,20 @@ async def subscribe_page():
         sub = Subscribe(**data)
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
-        async for title, link, torrent, description in actions.subscribe(sub):
-            if conn.download_exist(torrent):
+        async for item in iter_in_thread(actions.subscribe, sub):
+            if conn.download_exist(item.torrent):
                 output.put_row(
                     [
                         output.put_text("已下载"),
-                        output.put_link(title, link)
+                        output.put_link(item.title, item.gui, new_window=True)
                     ], "auto"
                 )
             else:
                 output.put_row(
                     [
                         output.put_button("下载到此截止", onclick=partial(
-                            subscribe_to, sub, torrent)),
-                        output.put_link(title, link),
-                    ]
+                            subscribe_to, sub, item.torrent)),
+                        output.put_link(item.title, item.gui, new_window=True),
+                    ], "auto"
                 )
         output.put_button("全部订阅", onclick=sub_all)

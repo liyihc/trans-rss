@@ -1,5 +1,4 @@
 from pathlib import Path
-from traceback import print_exc
 from pywebio import *
 from ..logger import exception_logger, log_dir, update, trans_rss, api, exception
 

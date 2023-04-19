@@ -1,6 +1,5 @@
 import contextvars
 from functools import partial, wraps
-from traceback import print_exc
 from typing import Literal
 from pywebio import *
 from ..logger import exception_logger
@@ -52,8 +51,6 @@ def catcher(func):
             except exceptions.SessionException:
                 raise
             except Exception as e:
-                print(str(e))
-                print_exc()
                 exception_logger.exception(e, stack_info=True)
                 output.toast(f"内部错误：{str(e)}", -1, color="error")
                 raise

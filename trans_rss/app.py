@@ -1,3 +1,4 @@
+from functools import partial
 from traceback import format_exc
 from typing import List
 
@@ -5,6 +6,8 @@ import pywebio
 from fastapi import FastAPI, Request, Response, responses, staticfiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
+
+from trans_rss.common import iter_in_thread
 
 from . import actions
 from .config import config, get_repeat, set_repeat, version
@@ -36,7 +39,8 @@ def web():
 
 
 webio_app = FastAPI(routes=web_routes)
-webio_app.mount("/static", staticfiles.StaticFiles(directory=pywebio.STATIC_PATH), name="static")
+webio_app.mount(
+    "/static", staticfiles.StaticFiles(directory=pywebio.STATIC_PATH), name="static")
 
 app.mount("/web", webio_app)
 
@@ -44,16 +48,14 @@ app.mount("/web", webio_app)
 @app.on_event("startup")
 async def test_transmission():
     with Connection() as conn:
-        pass # test db
+        pass  # test db
     if not config.without_transmission:
-        try: # tes transmission
+        try:  # tes transmission
             client = config.trans_client()
             client.get_torrents(timeout=2)
         except Exception as e:
             exception_logger.exception(str(e), stack_info=True)
             config.without_transmission = True
-
-
 
 
 @app.get("/api/test-sql")
@@ -63,17 +65,12 @@ async def test_sql(sql_statement: str):
         return cursor.fetchall()
 
 
-class Torrent(BaseModel):
-    title: str
-    url: str
-
-
-@app.post("/api/subscribe", response_model=List[Torrent])
+@app.post("/api/subscribe", response_model=List[actions.RSSParseResult])
 async def subscribe(name: str, url: str):
     with Connection() as conn:
         conn.subscribe(name, url)
         sub = Subscribe(name=name, url=url)
-        return [Torrent(title=title, url=torrent) async for title, gui, torrent, description in actions.subscribe(sub)]
+        return [item async for item in iter_in_thread(actions.subscribe, sub)]
 
 
 @app.delete("/api/subscribe")
@@ -124,12 +121,10 @@ async def test_webhooks():
 
 async def repeat_update():
     if get_repeat():
-        print("routine task start")
         update_logger.info("routine task start")
         async for _ in actions.update():
             pass
     else:
-        print("routine task skip")
         update_logger.info("routine task skip")
 
 app.on_event("startup")(

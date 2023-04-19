@@ -1,7 +1,12 @@
-import asyncio
+from functools import partial
+from multiprocessing.pool import AsyncResult, ThreadPool
+import threading
+import time
 from typing import Callable, Generator, Iterable, List, Tuple
 from urllib.parse import urlparse
 from xml.dom.minidom import parseString, Element as XmlElement, Attr as XmlAttr, Document as XmlDocument
+from pydantic import BaseModel
+import requests
 
 import transmission_rpc
 
@@ -11,8 +16,9 @@ from .config import config
 from . import webhook_types
 from .logger import update_logger, api_logger, exception_logger
 from . import logger
-from .common import status_update, status
-from tornado.httpclient import AsyncHTTPClient
+from .common import iter_in_thread, status_update, status
+
+from trans_rss import sql
 
 
 def xml_get_text(node: XmlElement):
@@ -26,8 +32,16 @@ def xml_get_text(node: XmlElement):
     return "".join(ret)
 
 
-def iter_rss(hostname: str, text: str) -> Generator[Tuple[str, str, str], None, None]:
+class RSSParseResult(BaseModel):
+    title: str
+    gui: str
+    torrent: str
+    description: str
+
+
+def iter_rss(hostname: str, text: str):
     sub_type = subscribe_types.get(hostname)
+    assert sub_type is not None, f"请先为网站{hostname}手动添加订阅模板"
     doml: XmlDocument = parseString(text)
     item: XmlElement
     for item in doml.getElementsByTagName("item"):
@@ -35,11 +49,14 @@ def iter_rss(hostname: str, text: str) -> Generator[Tuple[str, str, str], None, 
         gui = sub_type.get_text(item, "gui")
         torrent = sub_type.get_text(item, "torrent")
         desc = sub_type.get_text(item, "description")
-        yield title, gui, torrent, desc
+        yield RSSParseResult(
+            title=title,
+            gui=gui,
+            torrent=torrent,
+            description=desc)
 
 
-async def subscribe(sub: Subscribe):
-    client = AsyncHTTPClient()
+def subscribe(sub: Subscribe):
     page = 1
     retry = 0
     url = sub.url
@@ -48,19 +65,18 @@ async def subscribe(sub: Subscribe):
         url += "&page="
     else:
         url += "?page="
-
     while True:
-        resp = await client.fetch(f"{url}{page}")
+        resp = requests.get(f"{url}{page}")
         hostname = urlparse(sub.url).hostname
-        match resp.code:
+        match resp.status_code:
             case 500:  # page end
                 return
             case 200:
                 retry = 0
                 cnt = 0
-                for title, link, torrent, description in iter_rss(hostname, resp.body.decode()):
+                for result in iter_rss(hostname, resp.text):
                     cnt += 1
-                    yield title, link, torrent, description
+                    yield result
                 if not cnt:
                     return
                 page += 1
@@ -72,84 +88,116 @@ async def subscribe(sub: Subscribe):
             return
 
 
-async def broadcast(name: str, title: str, torrent: str):
-    client = AsyncHTTPClient()
-    success = True
+def _add_torrent(conn: sql.sql._Sql, trans_client: transmission_rpc.Client, item: RSSParseResult, dir: str):
+    try:
+        if config.without_transmission:
+            conn.download_add(item.torrent)
+        else:
+            t = trans_client.add_torrent(
+                item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
+
+            time.sleep(2)
+            t = trans_client.get_torrent(t.id)
+            try:
+                torrent_file = t.torrent_file
+            except:
+                torrent_file = None
+            conn.download_add(item.torrent, torrent_file)
+    except Exception as e:
+        exception_logger.exception(
+            f"add torrent {item.title} {item.torrent} to transmission {str(e)}", stack_info=True)
+        return f"添加下载{item.title}失败"
+
+
+def broadcast(name: str, title: str, torrent: str):
+    msg: List[str] = []
     for webhook in config.webhooks:
         if not webhook.enabled:
             continue
         body = webhook_types.format(
             webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
-        resp = await client.fetch(
-            webhook.url, method="POST", headers={'Content-Type': 'application/json'},
-            body=body)
-        print("webhook", webhook.type, webhook.url, resp.code)
-        if 200 <= resp.code <= 299:
-            logger.webhook_noti_success(webhook.type, webhook.url, resp.code)
-        else:
-            success = False
-            logger.webhook_noti_failed(
-                webhook.type, webhook.url, resp.code, body)
-    return success
+        try:
+            resp = requests.post(
+                webhook.url, headers={'Content-Type': 'application/json'}, data=body)
+            if 200 <= resp.status_code <= 299:
+                logger.webhook_noti_success(
+                    webhook.type, webhook.url, resp.status_code)
+            else:
+                logger.webhook_noti_failed(
+                    webhook.type, webhook.url, resp.status_code, body)
+        except Exception as e:
+            logger.webhook_noti_failed(webhook.type, webhook.url, -1, body)
+            exception_logger.exception(str(e), stack_info=True)
+            msg.append(f"通知{webhook.url}失败，{str(e)}")
+    return msg
 
-lock = asyncio.Lock()
+
+lock = threading.Lock()
 
 
-async def update_one(sub: Subscribe, notifier: Callable[[str], None] = None, trans_client:transmission_rpc.Client=None):
-    with Connection() as conn:
+def _update_one(sub: Subscribe):
+    with lock, Connection() as conn, ThreadPool() as pool:
         update_logger.info(
             f"subscribe name: {sub.name} url: {sub.url}")
-        print("subscribe", sub.name, sub.url)
-        if notifier:
-            notifier(f"正在查找 {sub.name}")
+        yield "msg", "info", f"正在查找 {sub.name}"
+
         first = True
-        l: List[Tuple[str, str, str]] = []
-        async for title, link, torrent, description in subscribe(sub):
+        l: List[RSSParseResult] = []
+        for item in subscribe(sub):
             if first:
-                status_update(sub.name, title, link, torrent)
+                status_update(sub.name, item.title, item.gui, item.torrent)
                 first = False
-            if conn.download_exist(torrent):
-                print("torrent exist:", sub.name, title, torrent)
-                print("subscribe stop", sub.name)
+            if conn.download_exist(item.torrent):
                 update_logger.info(
-                    f"subscribe stop because exist name: {sub.name} title: {title} link: {link} torrent: {torrent}")
-                if notifier:
-                    notifier(f"订阅 {sub.name} 存在 {title}")
+                    f"subscribe stop because exist name: {sub.name} title: {item.title} link: {item.gui} torrent: {item.torrent}")
+                yield "msg", "info", f"订阅 {sub.name} 存在 {item.title}"
                 break
-            print("find", sub.name, title, torrent)
-            l.append((title, link, torrent))
-        for title, link, torrent in reversed(l):
-            print("download", sub.name, title, torrent)
+            l.append(item)
+
+        trans_client = None if config.without_transmission else config.trans_client()
+        results: List[AsyncResult] = []
+        for item in reversed(l):
             update_logger.info(
-                f"download name: {sub.name} title: {title} link: {link} torrent: {torrent}")
-            if not config.without_transmission:
-                trans_client = trans_client or config.trans_client()
-                t = trans_client.add_torrent(
-                    torrent, download_dir=config.join(sub.name))
-                await asyncio.sleep(1)
-                t = trans_client.get_torrent(t.id)
-                try:
-                    conn.download_add(torrent, t.torrent_file)
-                except:
-                    conn.download_add(torrent)
-            else:
-                conn.download_add(torrent)
-            await broadcast(sub.name, title, torrent)
-            yield sub.name, title
+                f"download name: {sub.name} title: {item.title} link: {item.gui} torrent: {item.gui}")
+
+            results.append(
+                pool.apply_async(
+                    _add_torrent, (conn, trans_client, item, config.join(sub.name))))
+            results.append(
+                pool.apply_async(
+                    broadcast, (sub.name, item.title, item.torrent)))
+
+            yield "data", sub.name, item
+        pool.close()
+        pool.join()
+        for result in results:
+            r = result.get()
+            if r is not None:
+                if isinstance(r, list):
+                    for msg in r:
+                        yield "msg", "error", msg
+                else:
+                    yield "msg", "error", r
 
 
+async def update_one(sub: Subscribe, notifier: Callable[[str], None] = None):
+    async for item in iter_in_thread(partial(_update_one, sub)):
+        match item:
+            case "msg", color, msg:
+                if notifier is not None:
+                    notifier(msg, color=color)
+            case "data", name, result:
+                yield name, result
 
 
 async def update(notifier: Callable[[str], None] = None):
-    async with lock:
-        trans_client = None if config.without_transmission else config.trans_client()
-        with Connection() as conn:
-            names = set()
-            for sub in conn.subscribe_list():
-                names.add(sub.name)
-                async for it in update_one(sub, notifier, trans_client):
-                    yield it
+    with Connection() as conn:
+        names = set()
+        for sub in conn.subscribe_list():
+            names.add(sub.name)
+            async for it in update_one(sub, notifier):
+                yield it
 
-            for k in list(status.keys()):
-                if k not in names:
-                    status.pop(k)
+        for k in list(status.keys()):
+            if k not in names:
+                status.pop(k)

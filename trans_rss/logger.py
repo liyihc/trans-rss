@@ -1,7 +1,10 @@
+from datetime import datetime
 import json
 import logging
 import logging.handlers
+import os
 import pathlib
+import sys
 from typing import Literal
 
 
@@ -18,12 +21,13 @@ for dir in [log_dir, api, update, exception, trans_rss]:
 fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 
-def init_logger(name: str, folder: pathlib.Path):
+def init_logger(name: str, folder: pathlib.Path, stream=sys.stdout):
     logger = logging.getLogger(name)
     handler = logging.handlers.TimedRotatingFileHandler(
         folder / "log", when="midnight", encoding='utf-8')
     handler.setFormatter(fmt)
     logger.addHandler(handler)
+    logger.addHandler(logging.StreamHandler(stream))
     return logger
 
 
@@ -31,7 +35,7 @@ api_logger = init_logger("api", api)
 api_logger.setLevel(logging.INFO)
 update_logger = init_logger("update", update)
 update_logger.setLevel(logging.INFO)
-exception_logger = init_logger("exception", exception)
+exception_logger = init_logger("exception", exception, sys.stderr)
 exception_logger.setLevel(logging.INFO)
 trans_rss_logger = init_logger("trans-rss", trans_rss)
 trans_rss_logger.setLevel(logging.INFO)
@@ -63,6 +67,10 @@ def manual(
     action: Literal["download", "mark", "retrieve", "start", "stop", "delete"],
         url: str, *others: str):
     trans_rss_logger.info(" ".join(["manual", action, url, *others]))
+
+
+def webhook_noti_start(type: str, url: str, status_code: int):
+    api_logger.info(f"webhook notify start {type} {url} {status_code}")
 
 
 def webhook_noti_success(type: str, url: str, status_code: int):

@@ -14,7 +14,7 @@ version = (Path(__file__).parent / "version").read_text()
 
 
 class Debug(BaseModel):
-    pass
+    pause_after_add = False
 
 
 class Webhook(BaseModel):

@@ -1,3 +1,4 @@
+import asyncio
 from copy import deepcopy
 from functools import partial
 from typing import Generator, Iterable, List, Literal, Tuple, TypeVar, Union
@@ -12,6 +13,7 @@ import requests
 
 from trans_rss import subscribe_types
 from trans_rss import logger
+from trans_rss.common import run_in_thread
 
 from .common import button, catcher
 from . import common
@@ -113,15 +115,23 @@ async def subscribe_type_action(hostname: str, action: str):
             await put_edit_subscribe_type(hostname)
         case "delete":
             confirm = await input.actions(
-                f"确定删除订阅模板{hostname}吗？", 
+                f"确定删除订阅模板{hostname}吗？",
                 [
                     button("确定", True, "danger"),
                     button("取消", False, "secondary")
                 ])
             if confirm:
-                logger.subscribe_type("delete", hostname, subscribe_types.get(hostname).json())
+                logger.subscribe_type("delete", hostname,
+                                      subscribe_types.get(hostname).json())
                 subscribe_types.remove(hostname)
                 await put_main()
+
+
+def requests_get(url: str):
+    try:
+        return True, requests.get(url, timeout=3)
+    except Exception as e:
+        return False, str(e)
 
 
 @catcher
@@ -146,7 +156,10 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_edit():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                resp = requests.get(url)
+                succ, resp = await run_in_thread(partial(requests_get, url))
+                if not succ:
+                    output.toast(f"无法获取网页 {url} {resp}", color="error")
+                    return
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element
                 item = doml.getElementsByTagName("item")[0]
@@ -169,7 +182,6 @@ async def put_edit_subscribe_type(hostname: str):
                             f"subscribe-path-{index}", options, value=value)
                     ])
 
-
                 output.put_table(table)
 
             await input.actions("", [button("确认", True)])
@@ -190,11 +202,15 @@ async def put_edit_subscribe_type(hostname: str):
             subscribe_types.add(new_sub_type)
             await put_edit_subscribe_type(hostname)
             output.clear_scope("output")
+
         @catcher
         async def put_test():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                resp = requests.get(url)
+                succ, resp = await run_in_thread(partial(requests_get, url))
+                if not succ:
+                    output.toast(f"无法获取网页 {url} {resp}", color="error")
+                    return
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element
                 put_table_for_test(

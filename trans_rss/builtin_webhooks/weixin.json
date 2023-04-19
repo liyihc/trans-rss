@@ -1,0 +1,10 @@
+{ 
+    "builtin": false,
+    "body": {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": "# $title\n $subscribe\n [$torrent]($torrent)"
+        }
+    },
+    "help": ""
+}

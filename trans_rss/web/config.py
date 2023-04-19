@@ -7,14 +7,14 @@ import pytz
 import pywebio
 import requests
 from pywebio import input, output, pin, session
-from tornado.httpclient import AsyncHTTPClient
 
 from trans_rss import webhook_types
 from trans_rss import logger
+from trans_rss.common import run_in_thread
 
 from ..config import Config, Webhook, config
 from . import common
-from .common import catcher
+from .common import button, catcher
 
 
 @catcher
@@ -73,6 +73,7 @@ async def generate_webhooks():
     with output.use_scope("webhook", clear=True):
         table = ["类型 启用 链接 操作".split()]
         for ind, webhook in enumerate(local_webhooks):
+            wt = webhook_types.get(webhook.type)
             table.append([
                 pin.put_select(
                     f"webhook_type_{ind}", webhook_types.list(), value=webhook.type),
@@ -81,10 +82,10 @@ async def generate_webhooks():
                 pin.put_input(f"webhook_url_{ind}", value=webhook.url),
                 output.put_buttons(
                     [
-                        {"label": "测试", "value": "test", "color": "secondary"},
-                        {"label": "删除", "value": "delete", "color": "danger"}
+                        button("帮助", "help","secondary", disabled = not wt.help),
+                        button("测试", "test", "secondary"),
+                        button("删除", "delete", "danger")
                     ], partial(webhook_action, ind)
-
                 )
             ])
         table.append([
@@ -97,39 +98,37 @@ async def generate_webhooks():
         output.put_table(table)
 
 
+def webhook_noti(type:str, url: str, body: bytes):
+    try:
+        resp = requests.post(
+            url, headers={"Content-Type": "application/json"}, data=body, timeout=3)
+        if 200 <= resp.status_code <= 299:
+            logger.webhook_noti_success(type, url, resp.status_code)
+            return True, resp.text
+        else:
+            logger.webhook_noti_failed(type, url, resp.status_code, body)
+            return False, resp.text
+    except Exception as e:
+        return False, str(e)
+
+
 @catcher
 async def webhook_action(index: int, action: str):
     local_webhooks = local_webhooks_get()
     type = await pin.pin[f"webhook_type_{index}"]
     url = await pin.pin[f"webhook_url_{index}"]
     match action:
+        case "help":
+            output.toast(f"webhook {type} 的说明：{webhook_types.get(type).help}")
         case "test":
             output.toast(f"通知测试：{type} {url}")
             await asyncio.sleep(1)
             body = webhook_types.format(
                 type, "测试 webhook 标题", "测试 webhook 订阅", "https://github.com/liyihc/trans-rss")
-            succ = False
-            msg = ""
-            try:
-                resp = requests.post(
-                    url, headers={"Content-Type": "application/json"},
-                    data=body, timeout=3)
-                if 200 <= resp.status_code <= 299:
-                    succ = True
-                else:
-                    succ = False
-                msg = resp.text
-            except Exception as e:
-                msg = str(e)
+            succ, msg = await run_in_thread(partial(webhook_noti, type, url, body))
             if succ:
-                logger.webhook_noti_success(type, url, resp.status_code)
                 output.toast(f"通知成功: {type} {url}\n{msg}", color="success")
             else:
-                try:
-                    code = resp.status_code
-                except:
-                    code = 0
-                logger.webhook_noti_failed(type, url, code, body)
                 output.toast(f"通知失败: {url}\n{msg}", duration=0, color="error")
         case "delete":
             webhook = local_webhooks.pop(index)
@@ -176,7 +175,8 @@ async def webhooks_action(action: str):
 async def wait_update_configs():
     data: Dict[str, Any] = await input.input_group("", [
         input.radio("独立使用", name="without_transmission",
-                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    options=[{"label": "是", "value": True},
+                             {"label": "否", "value": False}],
                     value=config.without_transmission, help_text="若为“是”，则会停止操作transmission。每次启动时会检查与transmission的连接性"),
         input.input(
             "transmission host", name="transmission_host",
@@ -196,7 +196,8 @@ async def wait_update_configs():
             value=config.subscribe_minutes
         ),
         input.radio("自动翻页", name="auto_page",
-                    options=[{"label":"是","value":True}, {"label":"否","value":False}],
+                    options=[{"label": "是", "value": True},
+                             {"label": "否", "value": False}],
                     value=config.auto_page, help_text="不同种子站的翻页规则不一致，之后会添加不同站的翻页支持"),
         input.input(
             "时区", datalist=pytz.all_timezones, name="timezone",

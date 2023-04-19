@@ -13,6 +13,7 @@ from .config import webhook_dir, webhook_builtin_dir
 class WebhookType(BaseModel):
     builtin: bool = True
     body: dict = {}
+    help: str = ""
 
     @cached_property
     def template(self):
@@ -34,11 +35,11 @@ _webhook_types: Dict[str, WebhookType] = {}
 def init():
     _webhook_types.clear()
 
-    def load_from(dir: Path):
+    def load_from(dir: Path, builtin: bool):
         for path in dir.glob("*.json"):
-            _try_add_from_file(path)
-    load_from(webhook_builtin_dir)
-    load_from(webhook_dir)
+            _try_add_from_file(path, builtin)
+    load_from(webhook_builtin_dir, True)
+    load_from(webhook_dir, False)
 
 
 def format(type: str, title: str, sub: str, torrent: str):
@@ -53,9 +54,10 @@ def get(type: str):
     return _webhook_types.get(type)
 
 
-def _try_add_from_file(file: Path):
+def _try_add_from_file(file: Path, builtin: bool):
     if file.exists():
-        _webhook_types[file.name.removesuffix(".json")] = WebhookType.parse_file(file)
+        wt = _webhook_types[file.name.removesuffix(".json")] = WebhookType.parse_file(file)
+        wt.builtin = builtin
 
 
 def add(type: str, webhook: WebhookType):
@@ -71,6 +73,6 @@ def list():
 def remove(type: str):
     (webhook_dir / f"{type}.json").unlink(True)
     del _webhook_types[type]
-    _try_add_from_file(webhook_builtin_dir / f"{type}.json")
+    _try_add_from_file(webhook_builtin_dir / f"{type}.json", True)
 
 init()
