@@ -72,7 +72,4 @@ def button(label, value=None, color: Literal["primary", "secondary", "success", 
 
 
 def requests_get(url: str):
-    try:
-        return True, requests.get(url, timeout=3, proxies=config.get_proxies())
-    except Exception as e:
-        return False, str(e)
+    return requests.get(url, timeout=3, proxies=config.get_proxies())

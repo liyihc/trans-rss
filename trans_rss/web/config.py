@@ -35,7 +35,7 @@ async def test_transmission():
 @catcher
 async def test_httpproxy():
     try:
-        url = await input.input("请输入需要连接到的网站", value="https://acg.rip", datalist=["https://www.google.com", "https://acg.rip"])
+        url = await input.input("请输入需要连接到的网站", value="https://acg.rip/.xml", datalist=["https://acg.rip/.xml", "https://nyaa.si/?page=rss"])
         succ, resp = await run_in_thread(requests_get, url)
         if succ and 200 <= resp.status_code <= 299:
             output.toast("连接成功", color="success")
