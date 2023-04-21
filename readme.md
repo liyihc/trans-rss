@@ -31,7 +31,6 @@ If your transmission is also running in docker, please add `--link <name or id>:
 
 # road map 路线图
 
-- 由于pywebio的机制，需要在新线程以发起http请求
-  - 出错时同样发通知提醒（在设置中进行启动）
+- 支持通过代理进行订阅
 - 定制化不同订阅源的翻页机制
 - 考虑加入对aria2的支持（通过aria2p）
