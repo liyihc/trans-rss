@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Dict, List, Literal, Tuple
+import requests
 
 from transmission_rpc import TransmissionError
 import pywebio
@@ -29,7 +30,8 @@ async def get_id(title: str, torrent_url: str, dir:str):
         return
     client = config.trans_client()
     try:
-        torrent = client.add_torrent(torrent_url, download_dir=dir, paused=True)
+        resp = requests.get(torrent_url, proxies=config.get_proxies())
+        torrent = client.add_torrent(resp.content, download_dir=dir, paused=True)
 
         await asyncio.sleep(1)
         torrent = client.get_torrent(torrent.id)
