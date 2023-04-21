@@ -115,7 +115,7 @@ async def update():
 
 @app.post("/api/test_webhooks")
 async def test_webhooks():
-    ret = await actions.broadcast("测试", "webhook", "")
+    ret = await actions.broadcast_update("测试", "webhook", "")
     return "success" if ret else "fail"
 
 

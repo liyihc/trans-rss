@@ -55,7 +55,8 @@ async def subscribe_del(name: str, url: str):
                     else:
                         trans_client.remove_torrent(
                             torrent.id, delete_data=True)
-                        output.toast(f"已删除对应的种子及文件：{item.title}", color="success")
+                        output.toast(
+                            f"已删除对应的种子及文件：{item.title}", color="success")
                         logger.manual("delete", item.torrent, item.title)
 
             logger.subscribe("delete", name, sub.url)
@@ -110,7 +111,7 @@ def generate_sub_table():
                     output.put_link(ss.title, ss.link, new_window=True),
                     output.put_link(
                         str(download.dt if download else ""), ss.torrent, new_window=True),
-                    output.put_text(str(ss.query_time or ""))])
+                    output.put_error(f"{ss.query_time or ''}更新失败") if ss.last_error else output.put_text(str(ss.query_time or ""))])
             else:
                 row.extend([
                     output.put_text(""),

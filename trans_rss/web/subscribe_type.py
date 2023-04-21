@@ -9,13 +9,12 @@ from xml.dom.minidom import Element
 
 import pywebio
 from pywebio import input, output, session, pin
-import requests
 
 from trans_rss import subscribe_types
 from trans_rss import logger
 from trans_rss.common import run_in_thread
 
-from .common import button, catcher
+from .common import button, catcher, requests_get
 from . import common
 from trans_rss.subscribe_types import Keys, Actions, SubscribeType, iter_node, iter_xml, iter_plain
 
@@ -125,13 +124,6 @@ async def subscribe_type_action(hostname: str, action: str):
                                       subscribe_types.get(hostname).json())
                 subscribe_types.remove(hostname)
                 await put_main()
-
-
-def requests_get(url: str):
-    try:
-        return True, requests.get(url, timeout=3)
-    except Exception as e:
-        return False, str(e)
 
 
 @catcher
