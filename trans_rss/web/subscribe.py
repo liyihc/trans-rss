@@ -5,7 +5,7 @@ from pywebio import input, output, session
 
 from .. import actions
 from ..sql import Connection, Subscribe
-from ..common import SubStatus, iter_in_thread, status
+from ..common import SubStatus, iter_in_thread, status, get_status_error_msg
 from ..config import config
 
 from .common import button, generate_header, catcher
@@ -123,6 +123,9 @@ def generate_sub_table():
             table.append(row)
 
         output.put_table(table)
+        msg = get_status_error_msg()
+        if msg:
+            output.put_error(msg)
 
 
 @pywebio.config(title="Trans RSS 订阅列表", theme="dark")

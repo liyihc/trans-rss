@@ -16,7 +16,7 @@ from .config import config
 from . import webhook_types
 from .logger import update_logger, api_logger, exception_logger
 from . import logger
-from .common import iter_in_thread, status_error, status_update, status
+from .common import iter_in_thread, set_status_error_msg, status_error, status_update, status
 
 from trans_rss import sql
 
@@ -89,26 +89,6 @@ def subscribe(sub: Subscribe):
             return
 
 
-def _add_torrent(conn: sql.sql._Sql, trans_client: transmission_rpc.Client, item: RSSParseResult, dir: str):
-    try:
-        if config.without_transmission:
-            conn.download_add(item.torrent)
-        else:
-            t = trans_client.add_torrent(
-                item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
-
-            time.sleep(2)
-            t = trans_client.get_torrent(t.id)
-            try:
-                torrent_file = t.torrent_file
-            except:
-                torrent_file = None
-            conn.download_add(item.torrent, torrent_file)
-    except Exception as e:
-        exception_logger.exception(
-            f"add torrent {item.title} {item.torrent} to transmission {str(e)}", stack_info=True)
-        return f"添加下载{item.title}失败"
-
 def _broadcast(title: str, desc: str, link: str):
     msg: List[str] = []
     for webhook in config.webhooks:
@@ -167,9 +147,22 @@ def _update_one(sub: Subscribe):
             update_logger.info(
                 f"download name: {sub.name} title: {item.title} link: {item.gui} torrent: {item.gui}")
 
-            results.append(
-                pool.apply_async(
-                    _add_torrent, (conn, trans_client, item, config.join(sub.name))))
+            if config.without_transmission:
+                conn.download_add(item.torrent)
+            else:
+                try:
+                    t = trans_client.add_torrent(
+                        item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
+                except:
+                    raise ValueError(f"添加下载失败，请检查与transmission的联通，或者检查transmission能否直接下载该url: {item.torrent}。") from None
+
+                time.sleep(2)
+                t = trans_client.get_torrent(t.id)
+                try:
+                    torrent_file = t.torrent_file
+                except:
+                    torrent_file = None
+                conn.download_add(item.torrent, torrent_file)
             results.append(
                 pool.apply_async(
                     broadcast_update, (sub.name, item.title, item.torrent)))
@@ -202,6 +195,7 @@ async def update(notifier: Callable[[str], None] = None):
         subs = list(conn.subscribe_list())
         updated = set()
         error_sub = None
+        error_msg = None
         try:
             for sub in subs:
                 for retry in reversed(range(3)):
@@ -210,7 +204,9 @@ async def update(notifier: Callable[[str], None] = None):
                             yield it
                         updated.add(sub.name)
                         break
-                    except:
+                    except Exception as e:
+                        error_msg = str(e)
+
                         exception_logger.exception(f"tried {3-retry} times, {retry} times left")
                         if not retry:
                             error_sub = sub
@@ -224,8 +220,10 @@ async def update(notifier: Callable[[str], None] = None):
             if errors:
                 if config.notify_failed_update:
                     broadcast_error(error_sub.name, error_sub.url)
-            errors = []
-            for name in names:
-                if name not in updated:
+                for name in errors:
                     status_error(name)
-                    error = True
+                set_status_error_msg(error_msg)
+            else:
+                set_status_error_msg("")
+                
+

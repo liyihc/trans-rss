@@ -21,6 +21,8 @@ class SubStatus(BaseModel):
 
 status: Dict[str, SubStatus] = {}
 
+_error_msg: str = ""
+
 
 def status_update(name: str, title: str, link: str, torrent: str):
     status[name] = SubStatus(
@@ -33,6 +35,13 @@ def status_error(name: str):
         status[name].last_error = True
     else:
         status[name] = SubStatus(title="", link="", torrent="", query_time=datetime.now().replace(microsecond=0), last_error=True)
+    
+def set_status_error_msg(msg: str):
+    global _error_msg
+    _error_msg = msg
+
+def get_status_error_msg():
+    return _error_msg
 
 T = TypeVar("T")
 
