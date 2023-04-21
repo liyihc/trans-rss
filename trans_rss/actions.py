@@ -94,9 +94,8 @@ def _add_torrent(conn: sql.sql._Sql, trans_client: transmission_rpc.Client, item
         if config.without_transmission:
             conn.download_add(item.torrent)
         else:
-            resp = requests.get(item.torrent, proxies=config.get_proxies())
             t = trans_client.add_torrent(
-                resp.content, download_dir=dir, paused=config.debug.pause_after_add)
+                item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
 
             time.sleep(2)
             t = trans_client.get_torrent(t.id)
