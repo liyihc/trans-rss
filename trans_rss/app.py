@@ -121,24 +121,19 @@ async def test_webhooks():
 
 async def repeat_update():
     if get_repeat():
-        update_logger.info("routine task start")
-        async for _ in actions.update():
+        try: # catch exception to avoid tries
+            update_logger.info("routine task start")
+            async for _ in actions.update():
+                pass
+        except:
             pass
     else:
         update_logger.info("routine task skip")
 
 app.on_event("startup")(
-    repeat_every(
-        seconds=config.subscribe_minutes * 60, wait_first=True,
-        logger=exception_logger)(
-        repeat_update
-    )
-)
+    repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)(
+        repeat_update))
 
 app.on_event("startup")(
-    repeat_every(
-        seconds=30, wait_first=True,
-        logger=exception_logger, max_repetitions=1)(
-        repeat_update
-    )
-)
+    repeat_every(seconds=30, wait_first=True, max_repetitions=1)(
+        repeat_update))

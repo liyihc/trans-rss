@@ -110,14 +110,19 @@ def _broadcast(title: str, desc: str, link: str):
             msg.append(f"通知{webhook.url}失败，{str(e)}")
     return msg
 
+
 def broadcast_test():
-    _broadcast("Trans-RSS测试", "测试webhook", "https://github.com/liyihc/trans-rss")
+    _broadcast("Trans-RSS测试", "测试webhook",
+               "https://github.com/liyihc/trans-rss")
+
 
 def broadcast_update(name: str, title: str, torrent: str):
     _broadcast(f"开始下载 {title}", f"订阅任务：{name}", torrent)
 
+
 def broadcast_error(name: str, link: str):
     _broadcast("订阅失败", f"订阅{name}失败", link)
+
 
 lock = threading.Lock()
 
@@ -154,7 +159,8 @@ def _update_one(sub: Subscribe):
                     t = trans_client.add_torrent(
                         item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
                 except:
-                    raise ValueError(f"添加下载失败，请检查与transmission的联通，或者检查transmission能否直接下载该url: {item.torrent}。") from None
+                    raise ValueError(
+                        f"添加下载失败，请检查与transmission的联通，或者检查transmission能否直接下载该url: {item.torrent}。") from None
 
                 time.sleep(2)
                 t = trans_client.get_torrent(t.id)
@@ -194,8 +200,9 @@ async def update(notifier: Callable[[str], None] = None):
     with Connection() as conn:
         subs = list(conn.subscribe_list())
         updated = set()
-        error_sub = None
-        error_msg = None
+        error_sub: Subscribe = None
+        error_msg: str = None
+        names = {sub.name for sub in subs}
         try:
             for sub in subs:
                 for retry in reversed(range(3)):
@@ -207,23 +214,21 @@ async def update(notifier: Callable[[str], None] = None):
                     except Exception as e:
                         error_msg = str(e)
 
-                        exception_logger.exception(f"tried {3-retry} times, {retry} times left")
+                        exception_logger.exception(
+                            f"tried {3-retry} times, {retry} times left")
                         if not retry:
                             error_sub = sub
                             raise
+            set_status_error_msg("")
+        except Exception as e:
+            errors = names.difference(updated)
+            if config.notify_failed_update:
+                broadcast_error(error_sub.name, error_sub.url)
+            for name in errors:
+                status_error(name)
+            set_status_error_msg(error_msg)
+            exception_logger.exception(str(e), stack_info=True)
         finally:
-            names = {sub.name for sub in subs}
             for k in list(status.keys()):
                 if k not in names:
                     status.pop(k)
-            errors = names.difference(updated)
-            if errors:
-                if config.notify_failed_update:
-                    broadcast_error(error_sub.name, error_sub.url)
-                for name in errors:
-                    status_error(name)
-                set_status_error_msg(error_msg)
-            else:
-                set_status_error_msg("")
-                
-
