@@ -160,7 +160,7 @@ def _update_one(sub: Subscribe):
                 conn.download_add(item.torrent)
             else:
                 resp = requests.get(item.torrent, timeout=10, proxies=config.get_proxies())
-                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name))
+                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=config.debug.pause_after_add)
 
                 time.sleep(2)
                 t = trans_client.get_torrent(t.id)
