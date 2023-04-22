@@ -224,14 +224,20 @@ async def update(notifier: Callable[[str], None] = None):
                             error_sub = sub
                             raise
             if get_status_error_msg():
-                await run_in_thread(broadcast_recovery)
+                try:
+                    await run_in_thread(broadcast_recovery)
+                except:
+                    pass
             set_status_error_msg("")
         except Exception as e:
             errors = names.difference(updated)
             for name in errors:
                 status_error(name)
             if not get_status_error_msg() and config.notify_failed_update:  # skip if notified
-                await run_in_thread(broadcast_error, error_sub.name, error_sub.url)
+                try:
+                    await run_in_thread(broadcast_error, error_sub.name, error_sub.url)
+                except:
+                    pass
             set_status_error_msg(error_msg)
             exception_logger.exception(str(e), stack_info=True)
         finally:

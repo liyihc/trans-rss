@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue
+from threading import Thread
 from traceback import format_exc
 from types import NoneType
 from typing import Any, AsyncGenerator, Callable, Dict, Generator, Iterable, TypeVar, Union
@@ -81,10 +82,15 @@ async def iter_in_thread(func: Callable[..., Generator[T, Any, Any]], *args, **k
 async def run_in_thread(func: Callable[..., T], *args, **kwds) -> T:
     def new_func():
         try:
-            return True, func(*args, **kwds)
+            return func(*args, **kwds)
         except Exception as e:
             logger = logging.getLogger("exception")
             logger.exception(
                 f"exception in iter_in_thread\n{str(e)}", stack_info=True)
-            return False, str(e)
-    return await asyncio.to_thread(new_func)
+            return ThreadFuncError(e.args, format_exc())
+    ret = await asyncio.to_thread(new_func)
+    if isinstance(ret, ThreadFuncError):
+        raise Exception(*ret.args)
+    else:
+        return ret
+

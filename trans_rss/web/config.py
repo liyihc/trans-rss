@@ -36,10 +36,11 @@ async def test_transmission():
 async def test_httpproxy():
     try:
         url = await input.input("请输入需要连接到的网站", value="https://acg.rip/.xml", datalist=["https://acg.rip/.xml", "https://nyaa.si/?page=rss"])
-        succ, resp = await run_in_thread(requests_get, url)
-        if succ and 200 <= resp.status_code <= 299:
-            output.toast("连接成功", color="success")
-        else:
+        try:
+            resp = await run_in_thread(requests_get, url)
+            if 200 <= resp.status_code <= 299:
+                output.toast("连接成功", color="success")
+        except:
             output.toast(f'无法通过代理"{config.http_proxy}"连接到{url}', color="error")
 
     except Exception as e:
@@ -143,10 +144,10 @@ async def webhook_action(index: int, action: str):
             await asyncio.sleep(1)
             body = webhook_types.format(
                 type, "测试 webhook 标题", "测试 webhook 订阅", "https://github.com/liyihc/trans-rss")
-            succ, msg = await run_in_thread(partial(webhook_noti, type, url, body))
-            if succ:
+            try:
+                msg = await run_in_thread(partial(webhook_noti, type, url, body))
                 output.toast(f"通知成功: {type} {url}\n{msg}", color="success")
-            else:
+            except Exception as e:
                 output.toast(f"通知失败: {url}\n{msg}", duration=0, color="error")
         case "delete":
             webhook = local_webhooks.pop(index)

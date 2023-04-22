@@ -148,8 +148,9 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_edit():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                succ, resp = await run_in_thread(partial(requests_get, url))
-                if not succ:
+                try:
+                    resp = await run_in_thread(partial(requests_get, url))
+                except:
                     output.toast(f"无法获取网页 {url} {resp}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)
@@ -199,8 +200,9 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_test():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                succ, resp = await run_in_thread(partial(requests_get, url))
-                if not succ:
+                try:
+                    resp = await run_in_thread(partial(requests_get, url))
+                except:
                     output.toast(f"无法获取网页 {url} {resp}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)
