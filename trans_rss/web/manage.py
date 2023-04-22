@@ -9,13 +9,13 @@ import pywebio
 from pydantic import BaseModel
 from pywebio import input, output, session
 
-from trans_rss.common import iter_in_thread
+from trans_rss.common import iter_in_thread, run_in_thread
 
 from .. import actions
 from ..config import config
 from .. import logger
 from ..sql import Connection, Subscribe
-from .common import catcher, generate_header, button
+from .common import catcher, generate_header, button, requests_get
 
 
 async def refresh(): 
@@ -30,7 +30,8 @@ async def get_id(title: str, torrent_url: str, dir:str):
         return
     client = config.trans_client()
     try:
-        torrent = client.add_torrent(torrent_url, download_dir=dir, paused=True)
+        resp = await run_in_thread(requests_get, torrent_url)
+        torrent = client.add_torrent(resp.content, download_dir=dir, paused=True)
 
         await asyncio.sleep(1)
         torrent = client.get_torrent(torrent.id)
@@ -125,7 +126,10 @@ async def manage_subscribe_page():
                     ])
             else:
                 row.extend([
-                    output.put_text("-") for _ in range(3)
+                    output.put_text("-"),
+                    output.put_text("-"),
+                    output.put_button(
+                        "添加下载", partial(get_id, item.title, item.torrent, config.join(sub.name)))
                 ])
             table.append(row)
             if clear:

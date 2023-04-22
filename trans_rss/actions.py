@@ -159,12 +159,8 @@ def _update_one(sub: Subscribe):
             if config.without_transmission:
                 conn.download_add(item.torrent)
             else:
-                try:
-                    t = trans_client.add_torrent(
-                        item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
-                except:
-                    raise ValueError(
-                        f"添加下载失败，请检查与transmission的联通，或者检查transmission能否直接下载该url: {item.torrent}。") from None
+                resp = requests.get(item.torrent, timeout=10, proxies=config.get_proxies())
+                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=True)
 
                 time.sleep(2)
                 t = trans_client.get_torrent(t.id)
