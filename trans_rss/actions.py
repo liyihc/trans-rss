@@ -16,7 +16,7 @@ from .config import config
 from . import webhook_types
 from .logger import update_logger, api_logger, exception_logger
 from . import logger
-from .common import iter_in_thread, set_status_error_msg, status_error, status_update, status
+from .common import get_status_error_msg, iter_in_thread, run_in_thread, set_status_error_msg, status_error, status_update, status
 
 from trans_rss import sql
 
@@ -112,16 +112,20 @@ def _broadcast(title: str, desc: str, link: str):
 
 
 def broadcast_test():
-    _broadcast("Trans-RSS测试", "测试webhook",
+    return _broadcast("Trans-RSS测试", "测试webhook",
                "https://github.com/liyihc/trans-rss")
 
 
 def broadcast_update(name: str, title: str, torrent: str):
-    _broadcast(f"开始下载 {title}", f"订阅任务：{name}", torrent)
+    return _broadcast(f"开始下载 {title}", f"订阅任务：{name}", torrent)
 
 
 def broadcast_error(name: str, link: str):
-    _broadcast("订阅失败", f"订阅{name}失败", link)
+    return _broadcast("订阅失败", f"订阅{name}失败", link)
+
+
+def broadcast_recovery():
+    return _broadcast("订阅恢复正常", f"订阅恢复正常", "")
 
 
 lock = threading.Lock()
@@ -219,13 +223,15 @@ async def update(notifier: Callable[[str], None] = None):
                         if not retry:
                             error_sub = sub
                             raise
+            if get_status_error_msg():
+                await run_in_thread(broadcast_recovery)
             set_status_error_msg("")
         except Exception as e:
             errors = names.difference(updated)
-            if config.notify_failed_update:
-                broadcast_error(error_sub.name, error_sub.url)
             for name in errors:
                 status_error(name)
+            if not get_status_error_msg() and config.notify_failed_update:  # skip if notified
+                await run_in_thread(broadcast_error, error_sub.name, error_sub.url)
             set_status_error_msg(error_msg)
             exception_logger.exception(str(e), stack_info=True)
         finally:

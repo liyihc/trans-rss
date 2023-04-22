@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response, responses, staticfiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
 
-from trans_rss.common import iter_in_thread
+from trans_rss.common import iter_in_thread, run_in_thread
 
 from . import actions
 from .config import config, get_repeat, set_repeat, version
@@ -115,8 +115,8 @@ async def update():
 
 @app.post("/api/test_webhooks")
 async def test_webhooks():
-    ret = await actions.broadcast_update("测试", "webhook", "")
-    return "success" if ret else "fail"
+    ret = await run_in_thread(actions.broadcast_test)
+    return "fail" if ret else "success"
 
 
 async def repeat_update():
