@@ -176,7 +176,7 @@ async def subscribe_page():
             else:
                 output.put_row(
                     [
-                        output.put_button("下载到此截止", onclick=partial(
+                        output.put_button("订阅并下载以上剧集", onclick=partial(
                             subscribe_to, sub, item.torrent)),
                         output.put_link(item.title, item.gui, new_window=True),
                     ], "auto"
