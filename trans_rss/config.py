@@ -38,10 +38,12 @@ class Config(BaseModel):
     webhooks: List[Webhook] = []
     timezone: str = "Asia/Shanghai"
     base_folder: str = "/downloads/complete"
+    http_proxy: str = ""
+    notify_failed_update: bool = True
     debug: Debug = Debug()
     without_transmission: bool = True
     auto_page: bool = False
-    config_version: str = "0.1.1"
+    config_version: str = "0.1.2"
 
     def trans_client(self, timeout=30):
         return transmission_rpc.Client(
@@ -66,6 +68,15 @@ class Config(BaseModel):
 
     def join(self, path: str):
         return f"{self.base_folder}/{path}"
+
+    def get_proxies(self):
+        if self.http_proxy:
+            return {
+                "http": self.http_proxy,
+                "https": self.http_proxy
+            }
+        return {}
+        
 
 
 app_dir = Path(__file__).parents[1]

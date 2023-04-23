@@ -9,13 +9,12 @@ from xml.dom.minidom import Element
 
 import pywebio
 from pywebio import input, output, session, pin
-import requests
 
 from trans_rss import subscribe_types
 from trans_rss import logger
 from trans_rss.common import run_in_thread
 
-from .common import button, catcher
+from .common import button, catcher, requests_get
 from . import common
 from trans_rss.subscribe_types import Keys, Actions, SubscribeType, iter_node, iter_xml, iter_plain
 
@@ -127,13 +126,6 @@ async def subscribe_type_action(hostname: str, action: str):
                 await put_main()
 
 
-def requests_get(url: str):
-    try:
-        return True, requests.get(url, timeout=3)
-    except Exception as e:
-        return False, str(e)
-
-
 @catcher
 async def put_edit_subscribe_type(hostname: str):
     with output.use_scope("subscribe-type", True):
@@ -156,8 +148,9 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_edit():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                succ, resp = await run_in_thread(partial(requests_get, url))
-                if not succ:
+                try:
+                    resp = await run_in_thread(partial(requests_get, url))
+                except:
                     output.toast(f"无法获取网页 {url} {resp}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)
@@ -207,8 +200,9 @@ async def put_edit_subscribe_type(hostname: str):
         async def put_test():
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
-                succ, resp = await run_in_thread(partial(requests_get, url))
-                if not succ:
+                try:
+                    resp = await run_in_thread(partial(requests_get, url))
+                except:
                     output.toast(f"无法获取网页 {url} {resp}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)

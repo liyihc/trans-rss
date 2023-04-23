@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response, responses, staticfiles
 from fastapi_utils.tasks import repeat_every
 from pydantic import BaseModel
 
-from trans_rss.common import iter_in_thread
+from trans_rss.common import iter_in_thread, run_in_thread
 
 from . import actions
 from .config import config, get_repeat, set_repeat, version
@@ -115,30 +115,24 @@ async def update():
 
 @app.post("/api/test_webhooks")
 async def test_webhooks():
-    ret = await actions.broadcast("测试", "webhook", "")
-    return "success" if ret else "fail"
+    await run_in_thread(actions.broadcast_test)
 
 
 async def repeat_update():
     if get_repeat():
-        update_logger.info("routine task start")
-        async for _ in actions.update():
+        try: # catch exception to avoid tries
+            update_logger.info("routine task start")
+            async for _ in actions.update():
+                pass
+        except:
             pass
     else:
         update_logger.info("routine task skip")
 
 app.on_event("startup")(
-    repeat_every(
-        seconds=config.subscribe_minutes * 60, wait_first=True,
-        logger=exception_logger)(
-        repeat_update
-    )
-)
+    repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)(
+        repeat_update))
 
 app.on_event("startup")(
-    repeat_every(
-        seconds=30, wait_first=True,
-        logger=exception_logger, max_repetitions=1)(
-        repeat_update
-    )
-)
+    repeat_every(seconds=30, wait_first=True, max_repetitions=1)(
+        repeat_update))

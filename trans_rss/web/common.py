@@ -2,7 +2,9 @@ import contextvars
 from functools import partial, wraps
 from typing import Literal
 from pywebio import *
+import requests
 from ..logger import exception_logger
+from trans_rss.config import config
 
 
 def generate_header():
@@ -67,3 +69,7 @@ def button(label, value=None, color: Literal["primary", "secondary", "success", 
         "color": color,
         "disabled": disabled
     }
+
+
+def requests_get(url: str):
+    return requests.get(url, timeout=3, proxies=config.get_proxies())

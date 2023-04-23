@@ -5,7 +5,7 @@ from pywebio import input, output, session
 
 from .. import actions
 from ..sql import Connection, Subscribe
-from ..common import SubStatus, iter_in_thread, status
+from ..common import SubStatus, iter_in_thread, status, get_status_error_msg
 from ..config import config
 
 from .common import button, generate_header, catcher
@@ -55,7 +55,8 @@ async def subscribe_del(name: str, url: str):
                     else:
                         trans_client.remove_torrent(
                             torrent.id, delete_data=True)
-                        output.toast(f"已删除对应的种子及文件：{item.title}", color="success")
+                        output.toast(
+                            f"已删除对应的种子及文件：{item.title}", color="success")
                         logger.manual("delete", item.torrent, item.title)
 
             logger.subscribe("delete", name, sub.url)
@@ -110,7 +111,7 @@ def generate_sub_table():
                     output.put_link(ss.title, ss.link, new_window=True),
                     output.put_link(
                         str(download.dt if download else ""), ss.torrent, new_window=True),
-                    output.put_text(str(ss.query_time or ""))])
+                    output.put_error(f"{ss.query_time or ''}更新失败") if ss.last_error else output.put_text(str(ss.query_time or ""))])
             else:
                 row.extend([
                     output.put_text(""),
@@ -122,6 +123,9 @@ def generate_sub_table():
             table.append(row)
 
         output.put_table(table)
+        msg = get_status_error_msg()
+        if msg:
+            output.put_error(msg)
 
 
 @pywebio.config(title="Trans RSS 订阅列表", theme="dark")
@@ -172,7 +176,7 @@ async def subscribe_page():
             else:
                 output.put_row(
                     [
-                        output.put_button("下载到此截止", onclick=partial(
+                        output.put_button("订阅并下载以上剧集", onclick=partial(
                             subscribe_to, sub, item.torrent)),
                         output.put_link(item.title, item.gui, new_window=True),
                     ], "auto"

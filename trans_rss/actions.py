@@ -16,7 +16,7 @@ from .config import config
 from . import webhook_types
 from .logger import update_logger, api_logger, exception_logger
 from . import logger
-from .common import iter_in_thread, status_update, status
+from .common import get_status_error_msg, iter_in_thread, run_in_thread, set_status_error_msg, status_error, status_update, status
 
 from trans_rss import sql
 
@@ -65,8 +65,9 @@ def subscribe(sub: Subscribe):
         url += "&page="
     else:
         url += "?page="
+    proxies = config.get_proxies()
     while True:
-        resp = requests.get(f"{url}{page}")
+        resp = requests.get(f"{url}{page}", proxies=proxies)
         hostname = urlparse(sub.url).hostname
         match resp.status_code:
             case 500:  # page end
@@ -88,34 +89,12 @@ def subscribe(sub: Subscribe):
             return
 
 
-def _add_torrent(conn: sql.sql._Sql, trans_client: transmission_rpc.Client, item: RSSParseResult, dir: str):
-    try:
-        if config.without_transmission:
-            conn.download_add(item.torrent)
-        else:
-            t = trans_client.add_torrent(
-                item.torrent, download_dir=dir, paused=config.debug.pause_after_add)
-
-            time.sleep(2)
-            t = trans_client.get_torrent(t.id)
-            try:
-                torrent_file = t.torrent_file
-            except:
-                torrent_file = None
-            conn.download_add(item.torrent, torrent_file)
-    except Exception as e:
-        exception_logger.exception(
-            f"add torrent {item.title} {item.torrent} to transmission {str(e)}", stack_info=True)
-        return f"添加下载{item.title}失败"
-
-
-def broadcast(name: str, title: str, torrent: str):
+def _broadcast(title: str, desc: str, link: str):
     msg: List[str] = []
     for webhook in config.webhooks:
         if not webhook.enabled:
             continue
-        body = webhook_types.format(
-            webhook.type, f"开始下载 {title}", f"订阅任务: {name}", torrent)
+        body = webhook_types.format(webhook.type, title, desc, link)
         try:
             resp = requests.post(
                 webhook.url, headers={'Content-Type': 'application/json'}, data=body)
@@ -130,6 +109,23 @@ def broadcast(name: str, title: str, torrent: str):
             exception_logger.exception(str(e), stack_info=True)
             msg.append(f"通知{webhook.url}失败，{str(e)}")
     return msg
+
+
+def broadcast_test():
+    return _broadcast("Trans-RSS测试", "测试webhook",
+               "https://github.com/liyihc/trans-rss")
+
+
+def broadcast_update(name: str, title: str, torrent: str):
+    return _broadcast(f"开始下载 {title}", f"订阅任务：{name}", torrent)
+
+
+def broadcast_error(name: str, link: str):
+    return _broadcast("订阅失败", f"订阅{name}失败", link)
+
+
+def broadcast_recovery():
+    return _broadcast("订阅恢复正常", f"订阅恢复正常", "")
 
 
 lock = threading.Lock()
@@ -160,12 +156,22 @@ def _update_one(sub: Subscribe):
             update_logger.info(
                 f"download name: {sub.name} title: {item.title} link: {item.gui} torrent: {item.gui}")
 
+            if config.without_transmission:
+                conn.download_add(item.torrent)
+            else:
+                resp = requests.get(item.torrent, timeout=10, proxies=config.get_proxies())
+                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=config.debug.pause_after_add)
+
+                time.sleep(2)
+                t = trans_client.get_torrent(t.id)
+                try:
+                    torrent_file = t.torrent_file
+                except:
+                    torrent_file = None
+                conn.download_add(item.torrent, torrent_file)
             results.append(
                 pool.apply_async(
-                    _add_torrent, (conn, trans_client, item, config.join(sub.name))))
-            results.append(
-                pool.apply_async(
-                    broadcast, (sub.name, item.title, item.torrent)))
+                    broadcast_update, (sub.name, item.title, item.torrent)))
 
             yield "data", sub.name, item
         pool.close()
@@ -192,12 +198,45 @@ async def update_one(sub: Subscribe, notifier: Callable[[str], None] = None):
 
 async def update(notifier: Callable[[str], None] = None):
     with Connection() as conn:
-        names = set()
-        for sub in conn.subscribe_list():
-            names.add(sub.name)
-            async for it in update_one(sub, notifier):
-                yield it
+        subs = list(conn.subscribe_list())
+        updated = set()
+        error_sub: Subscribe = None
+        error_msg: str = None
+        names = {sub.name for sub in subs}
+        try:
+            for sub in subs:
+                for retry in reversed(range(3)):
+                    try:
+                        async for it in update_one(sub, notifier):
+                            yield it
+                        updated.add(sub.name)
+                        break
+                    except Exception as e:
+                        error_msg = str(e)
 
-        for k in list(status.keys()):
-            if k not in names:
-                status.pop(k)
+                        exception_logger.exception(
+                            f"tried {3-retry} times, {retry} times left")
+                        if not retry:
+                            error_sub = sub
+                            raise
+            if get_status_error_msg():
+                try:
+                    await run_in_thread(broadcast_recovery)
+                except:
+                    pass
+            set_status_error_msg("")
+        except Exception as e:
+            errors = names.difference(updated)
+            for name in errors:
+                status_error(name)
+            if not get_status_error_msg() and config.notify_failed_update:  # skip if notified
+                try:
+                    await run_in_thread(broadcast_error, error_sub.name, error_sub.url)
+                except:
+                    pass
+            set_status_error_msg(error_msg)
+            exception_logger.exception(str(e), stack_info=True)
+        finally:
+            for k in list(status.keys()):
+                if k not in names:
+                    status.pop(k)

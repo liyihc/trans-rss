@@ -1,5 +1,13 @@
 # update logs
 
+## 0.5.9 2023-04-21
+
+- 加入对HTTP代理的支持
+- 失败时通过webhook通知
+
+- add support for proxy
+- notify when failed to update
+
 ## 0.5.8 2023-04-18
 
 - change to request in another thread
@@ -22,7 +30,7 @@
 - get local file by try torrent and catch exception
 
 
-## 0.5.2 2023-04-09
+## 0.5.2 2023-04-09:
 
 - get torrents by torrent local file instead of torrent id since id may change after transmission restart
 

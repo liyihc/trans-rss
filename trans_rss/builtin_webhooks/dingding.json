@@ -4,7 +4,7 @@
         "msgtype": "markdown",
         "markdown": {
             "title": "番剧订阅",
-            "text": "#$title\n番剧 $subscribe\n[$torrent]($torrent)"
+            "text": "# $title\n番剧 $subscribe\n[$torrent]($torrent)"
         }
     },
     "help": "需要在钉钉机器人设置时，将关键词设置为“番剧”"
