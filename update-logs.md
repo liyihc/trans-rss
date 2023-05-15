@@ -1,5 +1,9 @@
 # update logs
 
+## 0.5.10 2023-05-15
+
+- add support to http user agent
+
 ## 0.5.9 2023-04-21
 
 - 加入对HTTP代理的支持

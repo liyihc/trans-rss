@@ -67,7 +67,7 @@ def subscribe(sub: Subscribe):
         url += "?page="
     proxies = config.get_proxies()
     while True:
-        resp = requests.get(f"{url}{page}", proxies=proxies)
+        resp = requests.get(f"{url}{page}", headers=config.get_headers(), proxies=proxies)
         hostname = urlparse(sub.url).hostname
         match resp.status_code:
             case 500:  # page end
@@ -159,7 +159,7 @@ def _update_one(sub: Subscribe):
             if config.without_transmission:
                 conn.download_add(item.torrent)
             else:
-                resp = requests.get(item.torrent, timeout=10, proxies=config.get_proxies())
+                resp = requests.get(item.torrent, timeout=10, headers=config.get_headers(), proxies=config.get_proxies())
                 t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=config.debug.pause_after_add)
 
                 time.sleep(2)

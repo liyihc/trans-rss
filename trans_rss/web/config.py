@@ -34,6 +34,7 @@ async def test_transmission():
 
 @catcher
 async def test_httpproxy():
+    url = None
     try:
         url = await input.input("请输入需要连接到的网站", value="https://acg.rip/.xml", datalist=["https://acg.rip/.xml", "https://nyaa.si/?page=rss"])
         try:
@@ -227,6 +228,10 @@ async def wait_update_configs():
         input.input(
             "HTTP代理", name="http_proxy", value=config.http_proxy,
             help_text="格式为：http://user:pass@123.123.123.123:7890 或 http://123.123.123.132:7890"
+        ),
+        input.input(
+            "HTTP User Agent", name="http_header_agent", value=config.http_header_agent,
+            help_text="在浏览器上按F12，选择“网络”后，刷新本页面，选择任意一个连接，即可在消息头中找到User-Agent"
         ),
         input.radio(
             "使用CDN", name="cdn", options=[{"label": "是", "value": True}, {"label": "否", "value": False}],

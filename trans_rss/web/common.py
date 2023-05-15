@@ -72,4 +72,4 @@ def button(label, value=None, color: Literal["primary", "secondary", "success", 
 
 
 def requests_get(url: str):
-    return requests.get(url, timeout=3, proxies=config.get_proxies())
+    return requests.get(url, timeout=3, headers=config.get_headers(), proxies=config.get_proxies())
