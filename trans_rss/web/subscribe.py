@@ -163,6 +163,7 @@ async def subscribe_page():
         )
 
         sub = Subscribe(**data)
+        sub.url = sub.url.strip()
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
         async for item in iter_in_thread(actions.subscribe, sub):

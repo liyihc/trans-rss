@@ -87,7 +87,8 @@ async def put_main():
 
         @catcher
         async def confirm():
-            new_subscribe = await pin.pin["type-add"]
+            new_subscribe: str = await pin.pin["type-add"]
+            new_subscribe = new_subscribe.strip()
             if not new_subscribe:
                 output.toast("选项不能为空", -1, color="warn")
             hostname: str = urlparse(new_subscribe).hostname
@@ -147,7 +148,8 @@ async def put_edit_subscribe_type(hostname: str):
         @catcher
         async def put_edit():
             with output.use_scope("output", True):
-                url = await pin.pin["example-url"]
+                url: str = await pin.pin["example-url"]
+                url = url.strip()
                 try:
                     resp = await run_in_thread(partial(requests_get, url))
                 except:

@@ -38,12 +38,13 @@ class Config(BaseModel):
     webhooks: List[Webhook] = []
     timezone: str = "Asia/Shanghai"
     base_folder: str = "/downloads/complete"
+    http_header_agent: str = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
     http_proxy: str = ""
     notify_failed_update: bool = True
     debug: Debug = Debug()
     without_transmission: bool = True
     auto_page: bool = False
-    config_version: str = "0.1.2"
+    config_version: str = "0.1.3"
 
     def trans_client(self, timeout=30):
         return transmission_rpc.Client(
@@ -76,7 +77,11 @@ class Config(BaseModel):
                 "https": self.http_proxy
             }
         return {}
-        
+
+    def get_headers(self):
+        return {
+            "User-Agent": self.http_header_agent
+        }
 
 
 app_dir = Path(__file__).parents[1]
