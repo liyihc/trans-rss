@@ -54,7 +54,7 @@ async def subscribe_type_page():
 
 async def put_main():
     with output.use_scope("subscribe-type", True):
-        output.put_markdown("# 自定义订阅")
+        output.put_markdown("# 自定义订阅\n> 编辑内置的订阅后会禁用内置订阅，再点击删除即可还原回初始的订阅")
         table = ["网址 键 路径 操作".split()]
         keys = typing.get_args(Keys)
         for hostname in subscribe_types.list():
@@ -68,10 +68,8 @@ async def put_main():
                 pretty_path(subscribe_type.paths.get(keys[0], [])),
                 output.span(output.put_buttons(
                     [
-                        {"label": "编辑", "value": "edit", "color": "secondary",
-                            "disabled": subscribe_type.builtin},
-                        {"label": "删除", "value": "delete", "color": "danger",
-                            "disabled": subscribe_type.builtin},
+                        button("编辑", "edit", "secondary"),
+                        button("删除", "delete", "danger", subscribe_type.builtin)
                     ], partial(subscribe_type_action, hostname)
                 ), row=len(keys))
             ])
@@ -153,7 +151,7 @@ async def put_edit_subscribe_type(hostname: str):
                 try:
                     resp = await run_in_thread(partial(requests_get, url))
                 except:
-                    output.toast(f"无法获取网页 {url} {resp}", color="error")
+                    output.toast(f"无法获取网页 {url}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element
@@ -193,6 +191,7 @@ async def put_edit_subscribe_type(hostname: str):
 
             await input.actions("", [button("确认", True)])
 
+            new_sub_type.builtin = False
             logger.subscribe_type("modify", hostname, new_sub_type.json())
             subscribe_types.add(new_sub_type)
             await put_edit_subscribe_type(hostname)
@@ -205,7 +204,7 @@ async def put_edit_subscribe_type(hostname: str):
                 try:
                     resp = await run_in_thread(partial(requests_get, url))
                 except:
-                    output.toast(f"无法获取网页 {url} {resp}", color="error")
+                    output.toast(f"无法获取网页 {url}", color="error")
                     return
                 doml = expatbuilder.parseString(resp.text, False)
                 doml: Element

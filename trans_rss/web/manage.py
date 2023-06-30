@@ -28,7 +28,7 @@ async def get_id(title: str, torrent_url: str, dir:str):
     if config.without_transmission:
         output.toast("当前为独立模式，无法操纵transmission", color='warn')
         return
-    client = config.trans_client()
+    client = config.transmission.client()
     try:
         resp = await run_in_thread(requests_get, torrent_url)
         torrent = client.add_torrent(resp.content, download_dir=dir, paused=True)
@@ -52,7 +52,7 @@ async def get_id(title: str, torrent_url: str, dir:str):
 
 @catcher
 async def manage_download(title: str, id: int, torrent_url: str, action: Literal["start", "stop", "delete"]):
-    client = config.trans_client()
+    client = config.transmission.client()
     match action:
         case "start":
             client.start_torrent(id)
@@ -94,7 +94,7 @@ async def manage_subscribe_page():
         sub = conn.subscribe_get(name)
         output.put_markdown(f"# [{name}]({sub.url}) 的订阅")
         if not config.without_transmission:
-            trans_client = config.trans_client()
+            trans_client = config.transmission.client()
             torrents = {t.torrent_file: t for t in trans_client.get_torrents()}
         else:
             torrents = {}

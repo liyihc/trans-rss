@@ -143,9 +143,9 @@ def put_webhook_type_edit(index: int, webhook_type: str):
             None,
             output.put_buttons(
                 [
-                    {"label": "确认", "value": "confirm", "color": "success"},
-                    {"label": "重置", "value": "reset", "color": "warning"},
-                    {"label": "取消", "value": "cancel", "color": "secondary"}
+                    button("确认", "confirm", "success"),
+                    button("重置", "reset", "warning"),
+                    button("取消", "cancel", "secondary")
                 ], confirm
             )
         ], "auto 10px 60% 10px auto")

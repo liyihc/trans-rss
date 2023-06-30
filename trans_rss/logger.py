@@ -47,7 +47,7 @@ def config_updated(key: str, old_value: str, new_value: str):
 
 
 def subscribe(
-        action: Literal["add", "delete", "delete-file"],
+        action: Literal["add", "delete", "delete-file", "delete-torrent"],
         name: str, url: str, *others: str):
     trans_rss_logger.info(' '.join(("subscribe", action, name, url, *others)))
 

@@ -13,10 +13,6 @@ import transmission_rpc
 version = (Path(__file__).parent / "version").read_text()
 
 
-class Debug(BaseModel):
-    pause_after_add = False
-
-
 class Webhook(BaseModel):
     type: str
     enabled: bool = True
@@ -26,12 +22,26 @@ class Webhook(BaseModel):
 CONFIG_VERSION = "config_version"
 
 
-class Config(BaseModel):
-    transmission_host: str = ""
+class Transmission(BaseModel):
+    host: str = ""
     protocol: str = "http"
     port: int = 9091
     username: Optional[str] = None
     password: Optional[str] = None
+    pause_after_add = False
+
+    def client(self, timeout=30):
+        return transmission_rpc.Client(
+            protocol=self.protocol,
+            host=self.host,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            timeout=timeout)
+
+class Config(BaseModel):
+    transmission: Transmission = Transmission()
+
     subscribe_minutes: int = 60
     auto_start: bool = True
     cdn: bool = True
@@ -41,27 +51,19 @@ class Config(BaseModel):
     http_header_agent: str = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
     http_proxy: str = ""
     notify_failed_update: bool = True
-    debug: Debug = Debug()
     without_transmission: bool = True
     auto_page: bool = False
-    config_version: str = "0.1.3"
+    config_version: str = "0.2.0"
 
-    def trans_client(self, timeout=30):
-        return transmission_rpc.Client(
-            protocol=self.protocol,
-            host=self.transmission_host,
-            port=self.port,
-            username=self.username,
-            password=self.password,
-            timeout=timeout)
 
     def get_seconds(self):
         return self.subscribe_minutes * 60
 
     def refresh(self):
         self.base_folder = self.base_folder.removesuffix("/")
-        self.username = self.username or None
-        self.password = self.password or None
+        transmission = self.transmission
+        transmission.username = transmission.username or None
+        transmission.password = transmission.password or None
         config_path.write_text(self.json(indent=4))
         os.environ["TZ"] = self.timezone
         if system() != "Windows":
@@ -127,10 +129,19 @@ def update_to_0_1_1(obj: dict):
     obj["without_transmission"] = obj.get(
         "debug", {}).get("without_transmission", True)
 
+def update_to_0_2_0(obj: dict):
+    obj["transmission"] = {
+        "host": obj.pop("transmission_host"),
+        "protocol": obj.pop("protocol"),
+        "port": obj.pop("port"),
+        "username": obj.pop("username"),
+        "password": obj.pop("password")
+    }
 
 updaters = [
     (Version("0.1.0"), update_to_0_1_0),
-    (Version("0.1.1"), update_to_0_1_1)
+    (Version("0.1.1"), update_to_0_1_1),
+    (Version("0.2.0"), update_to_0_2_0)
 ]
 
 if config_path.exists():
@@ -141,10 +152,7 @@ if config_path.exists():
 else:
     config = Config()
 
-config.refresh()
-
 repeat = config.auto_start
-
 
 def get_repeat():
     return repeat

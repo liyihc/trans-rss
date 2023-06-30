@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial
+from typing import Literal
 import pywebio
 from pywebio import input, output, session
 
@@ -29,40 +30,52 @@ async def update(sub: Subscribe = None):
 
 @catcher
 async def subscribe_del(name: str, url: str):
-    confirm = await input.actions(
-        f"确定删除订阅 {name} 吗",
-        [
-            button("确定并同时删除种子", 2, "danger"),
-            button("确定", 1, "danger"), button("取消", 0, "secondary")])
-    if confirm:
-        if confirm == 2:
+    result: Literal["both", "torrent", "none"] = await input.radio(
+        f"确定移除订阅 {name} 吗",
+        [{
+            "label": "删除订阅、种子及文件", "value": "both"
+        }, {
+            "label": "删除订阅、种子", "value": "torrent",
+        }, {
+            "label": "仅删除订阅", "value": "none"
+        }], value="none"
+    )
+
+    del_file = result == "both"
+    del_torrent = result != "none"
+    with Connection() as conn:
+        sub = conn.subscribe_get(name)
+        if del_torrent:
             if config.without_transmission:
                 output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
-
-        with Connection() as conn:
-            sub = conn.subscribe_get(name)
-            if confirm == 2:
+            if del_file:
                 logger.subscribe("delete-file", name, sub.url)
-                trans_client = config.trans_client()
-                torrents = {
-                    t.torrent_file: t for t in trans_client.get_torrents()}
-                async for _, item in subscribe_and_cache(sub):
-                    download = conn.download_get(item.torrent)
-                    torrent = torrents.get(download.local_torrent, None)
-                    if torrent is None:
-                        output.toast(f"未找到对应的种子，跳过：{item.title}")
-                    else:
-                        trans_client.remove_torrent(
-                            torrent.id, delete_data=True)
+            else:
+                logger.subscribe("delete-torrent", name, sub.url)
+            trans_client = config.transmission.client()
+            torrents = {
+                t.torrent_file: t for t in trans_client.get_torrents()}
+            async for _, item in subscribe_and_cache(sub):
+                download = conn.download_get(item.torrent)
+                torrent = torrents.get(download.local_torrent, None)
+                if torrent is None:
+                    output.toast(f"未找到对应的种子，跳过：{item.title}")
+                else:
+                    trans_client.remove_torrent(
+                        torrent.id, delete_data=del_file)
+                    if del_file:
                         output.toast(
                             f"已删除对应的种子及文件：{item.title}", color="success")
-                        logger.manual("delete", item.torrent, item.title)
+                    else:
+                        output.toast(
+                            f"已删除对应的种子：{item.title}", color="success")
+                    logger.manual("delete", item.torrent, item.title)
 
-            logger.subscribe("delete", name, sub.url)
-            conn.subscribe_del(name)
-            output.toast(f"删除订阅 {name}", color="success")
-        generate_sub_table()
+        logger.subscribe("delete", name, sub.url)
+        conn.subscribe_del(name)
+        output.toast(f"删除订阅 {name}", color="success")
+    generate_sub_table()
 
 
 @catcher

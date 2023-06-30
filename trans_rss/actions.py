@@ -150,7 +150,7 @@ def _update_one(sub: Subscribe):
                 break
             l.append(item)
 
-        trans_client = None if config.without_transmission else config.trans_client()
+        trans_client = None if config.without_transmission else config.transmission.client()
         results: List[AsyncResult] = []
         for item in reversed(l):
             update_logger.info(
@@ -160,7 +160,8 @@ def _update_one(sub: Subscribe):
                 conn.download_add(item.torrent)
             else:
                 resp = requests.get(item.torrent, timeout=10, headers=config.get_headers(), proxies=config.get_proxies())
-                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=config.debug.pause_after_add)
+                t = trans_client.add_torrent(
+                    resp.content, download_dir=config.join(sub.name), paused=config.transmission.pause_after_add)
 
                 time.sleep(2)
                 t = trans_client.get_torrent(t.id)

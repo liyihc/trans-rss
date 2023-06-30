@@ -1,0 +1,47 @@
+{
+    "builtin": true,
+    "hostname": "nyaa.si",
+    "example_url": "https://nyaa.si/?page=rss",
+    "paths": {
+        "title": [
+            [
+                "Node",
+                "title"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "gui": [
+            [
+                "Node",
+                "guid"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "description": [
+            [
+                "Node",
+                "description"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "torrent": [
+            [
+                "Node",
+                "link"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ]
+    }
+}
