@@ -81,7 +81,7 @@ async def subscribe_del(name: str, url: str):
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url)
+        logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
         conn.subscribe(sub.name, sub.url)
         output.toast(f"添加订阅 {sub.name}")
     await update(sub)
@@ -171,12 +171,18 @@ async def subscribe_page():
             [
                 input.input("名称", name="name"),
                 input.input("链接", input.URL, name="url",
-                            help_text="")
+                            help_text=""),
+                input.input("必须包含的词", name="include_words",
+                            help_text="使用空格分开"),
+                input.input("排除的词", name="exclude_words",
+                            help_text="使用空格分开"),
             ]
         )
 
         sub = Subscribe(**data)
         sub.url = sub.url.strip()
+        sub.include_words = sub.include_words.strip()
+        sub.exclude_words = sub.exclude_words.strip()
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
         async for item in iter_in_thread(actions.subscribe, sub):

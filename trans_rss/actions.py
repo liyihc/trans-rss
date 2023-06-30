@@ -66,6 +66,8 @@ def subscribe(sub: Subscribe):
     else:
         url += "?page="
     proxies = config.get_proxies()
+    include_words = set(sub.include_words.split())
+    exclude_words = set(sub.exclude_words.split())
     while True:
         resp = requests.get(f"{url}{page}", headers=config.get_headers(), proxies=proxies)
         hostname = urlparse(sub.url).hostname
@@ -77,6 +79,23 @@ def subscribe(sub: Subscribe):
                 cnt = 0
                 for result in iter_rss(hostname, resp.text):
                     cnt += 1
+                    title = result.title
+                    logger.update_log(sub.name, result.title, result.gui, result.torrent)
+                    exclude = False
+                    for word in include_words:
+                        if word not in title:
+                            exclude = True
+                            logger.update_exclude(word, "not-in", result.title)
+                            break
+                    if exclude:
+                        continue
+                    for word in exclude_words:
+                        if word in title:
+                            exclude = True
+                            logger.update_exclude(word, "in", result.title)
+                            break
+                    if exclude:
+                        continue
                     yield result
                 if not cnt:
                     return

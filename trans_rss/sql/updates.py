@@ -2,7 +2,7 @@ from sqlite3 import Connection
 from packaging.version import Version
 from ..logger import trans_rss_logger, exception_logger
 
-version = "0.5.2"
+version = "0.5.11"
 
 def update_to_0_3_0(conn: Connection):
     conn.execute("ALTER TABLE downloaded ADD id INT")
@@ -19,10 +19,16 @@ CREATE TABLE downloaded(
     local_torrent VARCHAR(256)) """)
     conn.executemany("INSERT INTO downloaded(url, dt) VALUES(?,?)", downloads)
 
+def update_to_0_5_11(conn: Connection):
+    conn.execute("ALTER TABLE subscribe ADD COLUMN include_words TEXT")
+    conn.execute("ALTER TABLE subscribe ADD COLUMN exclude_words TEXT")
+    conn.execute('UPDATE subscribe SET include_words = "", exclude_words = ""')
+
 
 updaters = [
     (Version("0.3.0"), update_to_0_3_0),
-    (Version("0.5.2"), update_to_0_5_2)
+    (Version("0.5.2"), update_to_0_5_2),
+    (Version("0.5.11"), update_to_0_5_11)
 ]
 
 assert Version(version) == updaters[-1][0]
