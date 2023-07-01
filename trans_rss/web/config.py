@@ -1,7 +1,8 @@
 import asyncio
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
 
 import pytz
 import pywebio
@@ -11,9 +12,10 @@ from pywebio import input, output, pin, session
 from trans_rss import webhook_types
 from trans_rss import logger
 from trans_rss.common import run_in_thread
+from trans_rss.sql.sql import Connection
 from trans_rss.web.subscribe_type import requests_get
 
-from ..config import Config, Webhook, config
+from ..config import Config, Transmission, Webhook, config
 from . import common
 from .common import button, catcher
 
@@ -21,7 +23,7 @@ from .common import button, catcher
 @catcher
 async def test_transmission():
     try:
-        client = config.trans_client(5)
+        client = config.transmission.client(5)
         torrents = client.get_torrents()
         output.toast(f"Transmission共有{len(torrents)}个种子正在下载")
         if torrents:
@@ -36,7 +38,13 @@ async def test_transmission():
 async def test_httpproxy():
     url = None
     try:
-        url = await input.input("请输入需要连接到的网站", value="https://acg.rip/.xml", datalist=["https://acg.rip/.xml", "https://nyaa.si/?page=rss"])
+        with Connection() as conn:
+            url = await input.input(
+                "请输入需要连接到的网站",
+                value="https://nyaa.si/?page=rss",
+                datalist=["https://acg.rip/.xml", "https://nyaa.si/?page=rss"] +
+                [sub.url for sub in conn.subscribe_list()]
+            )
         try:
             resp = await run_in_thread(requests_get, url)
             if 200 <= resp.status_code <= 299:
@@ -200,17 +208,17 @@ async def wait_update_configs():
                     value=config.without_transmission, help_text="若为“是”，则会停止操作transmission。每次启动时会检查与transmission的连接性"),
         input.input(
             "transmission host", name="transmission_host",
-            value=config.transmission_host),
+            value=config.transmission.host),
         input.select(
-            "协议", ["http", "https"], name="protocol",
-            value=config.protocol),
+            "transmission 协议", ["http", "https"], name="transmission_protocol",
+            value=config.transmission.protocol),
         input.input(
-            "端口", input.NUMBER, name="port", value=config.port),
+            "transmission 端口", input.NUMBER, name="transmission_port", value=config.transmission.port),
         input.input(
-            "用户名", name="username", value=config.username),
+            "transmission 用户名", name="transmission_username", value=config.transmission.username),
         input.input(
-            "密码", input.PASSWORD, name="password",
-            value=config.password),
+            "transmission 密码", input.PASSWORD, name="transmission_password",
+            value=config.transmission.password),
         input.input(
             "轮询时间（分钟）", input.NUMBER, name="subscribe_minutes",
             value=config.subscribe_minutes
@@ -237,16 +245,32 @@ async def wait_update_configs():
             "使用CDN", name="cdn", options=[{"label": "是", "value": True}, {"label": "否", "value": False}],
             value=config.cdn, help_text="否将使用内置CDN，在jsdelivr无法访问时使用。需要重新启动服务才能生效")
     ])
+
+    prefix = "transmission_"
+    sub_data = {key.removeprefix(prefix): data.pop(
+        key) for key in list(data.keys()) if key.startswith(prefix)}
+    sub_data["username"] = sub_data["username"] or None
+    sub_data["password"] = sub_data["password"] or None
+    data["transmission"] = sub_data
+
+
     new_config = Config(**data)
-    new_config.username = new_config.username or None
-    new_config.password = new_config.password or None
-    for key in data.keys():
-        old_value = getattr(config, key)
-        new_value = getattr(new_config, key)
-        if old_value != new_value:
-            logger.config_updated(key, old_value, new_value)
-            output.toast(f'更新配置{key}从"{old_value}"至"{new_value}"')
-            setattr(config, key, new_value)
+
+    def update_diff(config: BaseModel, new_config: BaseModel, data: dict, prefix: str=""):
+        for key in data.keys():
+            value = getattr(config, key)
+            new_value = getattr(new_config, key)
+            if isinstance(value, BaseModel):
+                if prefix:
+                    new_prefix = f"{prefix}.{key}."
+                else:
+                    new_prefix = f"{key}."
+                update_diff(value, new_value, data[key], new_prefix)
+            elif value != new_value:
+                logger.config_updated(key, value, new_value)
+                output.toast(f'更新配置{prefix}{key}从"{value}"至"{new_value}"')
+                setattr(config, key, new_value)
+    update_diff(config, new_config, data)
     config.refresh()
 
     output.toast("更新配置成功，正在刷新页面", color="success")

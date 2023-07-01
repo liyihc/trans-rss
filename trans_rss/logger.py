@@ -47,7 +47,7 @@ def config_updated(key: str, old_value: str, new_value: str):
 
 
 def subscribe(
-        action: Literal["add", "delete", "delete-file"],
+        action: Literal["add", "delete", "delete-file", "delete-torrent"],
         name: str, url: str, *others: str):
     trans_rss_logger.info(' '.join(("subscribe", action, name, url, *others)))
 
@@ -102,3 +102,9 @@ def webhook_type_del(name: str, body: dict):
 
 def webhook_type_json_error(name: str, body: str):
     trans_rss_logger.info(f"webhook-type json error {name} {body}")
+
+def update_log(sub_name: str, title: str, gui: str, torrent: str):
+    update_logger.info(f'find-anime {sub_name} "{title}" {gui} {torrent}')
+
+def update_exclude(word: str, in_or_not:Literal["in", "not-in"], title: str):
+    update_logger.info(f'exclude-anime because "{word}" {in_or_not} "{title}"')

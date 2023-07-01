@@ -66,6 +66,8 @@ def subscribe(sub: Subscribe):
     else:
         url += "?page="
     proxies = config.get_proxies()
+    include_words = set(sub.include_words.split())
+    exclude_words = set(sub.exclude_words.split())
     while True:
         resp = requests.get(f"{url}{page}", headers=config.get_headers(), proxies=proxies)
         hostname = urlparse(sub.url).hostname
@@ -77,6 +79,23 @@ def subscribe(sub: Subscribe):
                 cnt = 0
                 for result in iter_rss(hostname, resp.text):
                     cnt += 1
+                    title = result.title
+                    logger.update_log(sub.name, result.title, result.gui, result.torrent)
+                    exclude = False
+                    for word in include_words:
+                        if word not in title:
+                            exclude = True
+                            logger.update_exclude(word, "not-in", result.title)
+                            break
+                    if exclude:
+                        continue
+                    for word in exclude_words:
+                        if word in title:
+                            exclude = True
+                            logger.update_exclude(word, "in", result.title)
+                            break
+                    if exclude:
+                        continue
                     yield result
                 if not cnt:
                     return
@@ -150,7 +169,7 @@ def _update_one(sub: Subscribe):
                 break
             l.append(item)
 
-        trans_client = None if config.without_transmission else config.trans_client()
+        trans_client = None if config.without_transmission else config.transmission.client()
         results: List[AsyncResult] = []
         for item in reversed(l):
             update_logger.info(
@@ -160,7 +179,8 @@ def _update_one(sub: Subscribe):
                 conn.download_add(item.torrent)
             else:
                 resp = requests.get(item.torrent, timeout=10, headers=config.get_headers(), proxies=config.get_proxies())
-                t = trans_client.add_torrent(resp.content, download_dir=config.join(sub.name), paused=config.debug.pause_after_add)
+                t = trans_client.add_torrent(
+                    resp.content, download_dir=config.join(sub.name), paused=config.transmission.pause_after_add)
 
                 time.sleep(2)
                 t = trans_client.get_torrent(t.id)

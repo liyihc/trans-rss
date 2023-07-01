@@ -1,0 +1,47 @@
+{
+    "builtin": true,
+    "hostname": "www.kisssub.org",
+    "example_url": "https://www.kisssub.org/rss-test.xml",
+    "paths": {
+        "title": [
+            [
+                "Node",
+                "title"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "gui": [
+            [
+                "Node",
+                "guid"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "description": [
+            [
+                "Node",
+                "description"
+            ],
+            [
+                "Plain",
+                null
+            ]
+        ],
+        "torrent": [
+            [
+                "Node",
+                "enclosure"
+            ],
+            [
+                "Attr",
+                "url"
+            ]
+        ]
+    }
+}

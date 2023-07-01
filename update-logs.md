@@ -1,5 +1,12 @@
 # update logs
 
+## 0.5.11 2023-06-30
+
+- add include & exclude words for subscribe
+- add builtin sites
+- can modify builtin subscribes
+- you can choose among "delete file and torrent", "delete torrent", "only delete subscribe"
+
 ## 0.5.10 2023-05-15
 
 - add support to http user agent
