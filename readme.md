@@ -5,6 +5,7 @@
 - 没有transmissoin服务也可以运行。此时单独起推送通知的作用。
 - 现在nyaa使用时不要打开自动翻页。https://github.com/liyihc/trans-rss/issues/5#issue-1664541402
 - 添加钉钉webhook机器人时，需要添加关键词“番剧”
+- 支持添加关键词来筛选或排除番剧
 
 # 使用docker运行
 
