@@ -58,6 +58,8 @@ async def subscribe_del(name: str, url: str):
                 t.torrent_file: t for t in trans_client.get_torrents()}
             async for _, item in subscribe_and_cache(sub):
                 download = conn.download_get(item.torrent)
+                if download is None:
+                    continue
                 torrent = torrents.get(download.local_torrent, None)
                 if torrent is None:
                     output.toast(f"未找到对应的种子，跳过：{item.title}")
