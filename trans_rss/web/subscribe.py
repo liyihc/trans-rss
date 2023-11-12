@@ -10,7 +10,7 @@ from ..common import SubStatus, iter_in_thread, status, get_status_error_msg
 from ..config import config
 
 from .common import button, generate_header, catcher
-from .manage import subscribe_and_cache
+from .manage import subscribe_and_cache, clear_cache
 from trans_rss import logger
 
 
@@ -73,6 +73,7 @@ async def subscribe_del(name: str, url: str):
                         output.toast(
                             f"已删除对应的种子：{item.title}", color="success")
                     logger.manual("delete", item.torrent, item.title)
+            clear_cache(sub)
 
         logger.subscribe("delete", name, sub.url)
         conn.subscribe_del(name)

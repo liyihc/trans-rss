@@ -72,7 +72,7 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
             logger.manual("delete", torrent_url, title)
             with Connection() as conn:
                 conn.download_assign(torrent_url, None)
-            config.trans_client().remove_torrent(id, True)
+            config.transmission.client().remove_torrent(id, True)
             output.toast(f"已在transmission中删除 {title}")
 
     await refresh()
@@ -167,3 +167,6 @@ async def subscribe_and_cache(sub: Subscribe):
     for url, cache in list(caches.items()):
         if now - cache.dt > hour:
             caches.pop(url)
+
+async def clear_cache(sub: Subscribe):
+    caches.pop(sub.url, None)
