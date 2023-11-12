@@ -84,7 +84,7 @@ async def subscribe_del(name: str, url: str):
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
         logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
-        conn.subscribe(sub.name, sub.url)
+        conn.subscribe(sub)
         output.toast(f"添加订阅 {sub.name}")
     await update(sub)
     generate_sub_table()
@@ -98,11 +98,11 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url)
+        logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
         logger.manual("mark", url, sub.name, sub.url)
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
-        conn.subscribe(sub.name, sub.url)
+        conn.subscribe(sub)
     await update(sub)
     session.go_app("sub-list", False)
 
