@@ -10,7 +10,7 @@ from ..common import SubStatus, iter_in_thread, status, get_status_error_msg
 from ..config import config
 
 from .common import button, generate_header, catcher
-from .manage import subscribe_and_cache
+from .manage import subscribe_and_cache, clear_cache
 from trans_rss import logger
 
 
@@ -73,6 +73,7 @@ async def subscribe_del(name: str, url: str):
                         output.toast(
                             f"已删除对应的种子：{item.title}", color="success")
                     logger.manual("delete", item.torrent, item.title)
+            clear_cache(sub)
 
         logger.subscribe("delete", name, sub.url)
         conn.subscribe_del(name)
@@ -84,7 +85,7 @@ async def subscribe_del(name: str, url: str):
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
         logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
-        conn.subscribe(sub.name, sub.url)
+        conn.subscribe(sub)
         output.toast(f"添加订阅 {sub.name}")
     await update(sub)
     generate_sub_table()
@@ -98,11 +99,11 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url)
+        logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
         logger.manual("mark", url, sub.name, sub.url)
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
-        conn.subscribe(sub.name, sub.url)
+        conn.subscribe(sub)
     await update(sub)
     session.go_app("sub-list", False)
 

@@ -69,7 +69,7 @@ async def test_sql(sql_statement: str):
 @app.post("/api/subscribe", response_model=List[actions.RSSParseResult])
 async def subscribe(name: str, url: str):
     with Connection() as conn:
-        conn.subscribe(name, url)
+        conn.subscribe(Subscribe(name=name, url=url))
         sub = Subscribe(name=name, url=url)
         return [item async for item in iter_in_thread(actions.subscribe, sub)]
 

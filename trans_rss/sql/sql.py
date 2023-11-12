@@ -13,8 +13,8 @@ from .updates import update
 class Subscribe(BaseModel):
     name: str
     url: str
-    include_words: str
-    exclude_words: str
+    include_words: str = ""
+    exclude_words: str = ""
 
 
 class DownloadTorrent(BaseModel):
@@ -52,10 +52,10 @@ CREATE TABLE downloaded(
             conn.execute('INSERT INTO infos VALUES("version", "0.5.11")')
             conn.commit()
 
-    def subscribe(self, name: str, url: str, include_words: str = "", exclude_words: str = ""):
+    def subscribe(self, sub: Subscribe):
         self.conn.execute(
             "REPLACE INTO subscribe VALUES(?,?,?,?)",
-            (name, url, include_words, exclude_words))
+            (sub.name, sub.url, sub.include_words, sub.exclude_words))
         self.conn.commit()
 
     def subscribe_del(self, name: str):
