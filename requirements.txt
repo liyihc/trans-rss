@@ -1,5 +1,4 @@
 fastapi==0.92.0
-fastapi-utils==0.2.1
 transmission-rpc==4.2.0
 packaging==23.0
 pytz==2022.7.1

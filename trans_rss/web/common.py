@@ -1,10 +1,17 @@
+import asyncio
 import contextvars
+import weakref
 from functools import partial, wraps
+from queue import Queue
 from typing import Literal
-from pywebio import *
+
 import requests
-from ..logger import exception_logger
+from pywebio import *
+
 from trans_rss.config import config
+
+from ..common import ToastMessage, input_queue, queues
+from ..logger import exception_logger
 
 
 def generate_header():
@@ -41,6 +48,15 @@ def generate_header():
 in_catcher = contextvars.ContextVar("in_catcher", default=False)
 
 
+async def loop_listener(queue: Queue[ToastMessage]):
+    try:
+        while True:
+            msg = await asyncio.to_thread(queue.get)
+            output.toast(msg.content, msg.duration, msg.position, msg.color)
+    except:
+        pass
+
+
 def catcher(func):
     @wraps(func)
     async def wrapper(*args, **kwds):
@@ -48,7 +64,10 @@ def catcher(func):
             return await func(*args, **kwds)
         else:
             try:
+                queue = Queue()
+                queues.append(weakref.ref(queue))
                 in_catcher.set(True)
+                session.run_async(loop_listener(queue))
                 return await func(*args, **kwds)
             except exceptions.SessionException:
                 raise

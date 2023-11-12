@@ -14,20 +14,6 @@ from .manage import subscribe_and_cache, clear_cache
 from trans_rss import logger
 
 
-async def update(sub: Subscribe = None):
-    cnt = 0
-    async for name, item in actions.update(output.toast) \
-            if sub is None else actions.update_one(sub, output.toast):
-        cnt += 1
-        output.toast(f"订阅 {name} 下载 {item.title}")
-        await asyncio.sleep(0.5)
-    if cnt:
-        output.toast(f"共添加{cnt}个新下载项", color="success")
-    else:
-        output.toast(f"未找到有更新的订阅", color="success")
-    await asyncio.sleep(2)
-
-
 @catcher
 async def subscribe_del(name: str, url: str):
     result: Literal["both", "torrent", "none"] = await input.radio(
@@ -84,11 +70,12 @@ async def subscribe_del(name: str, url: str):
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
+        logger.subscribe("add", sub.name, sub.url,
+                         sub.include_words, sub.exclude_words)
         conn.subscribe(sub)
         output.toast(f"添加订阅 {sub.name}")
-    await update(sub)
-    generate_sub_table()
+    actions.update_timer.update()
+    session.go_app("sub-list", False)
 
 
 def download_url(url: str):
@@ -99,19 +86,19 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url, sub.include_words, sub.exclude_words)
+        logger.subscribe("add", sub.name, sub.url,
+                         sub.include_words, sub.exclude_words)
         logger.manual("mark", url, sub.name, sub.url)
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub)
-    await update(sub)
+    actions.update_timer.update()
     session.go_app("sub-list", False)
 
 
 @catcher
 async def update_manual():
-    await update()
-    generate_sub_table()
+    actions.update_timer.update()
 
 
 def generate_sub_table():
