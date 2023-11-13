@@ -11,8 +11,9 @@ from ..config import config
 
 from .common import button, generate_header, catcher
 from .manage import subscribe_and_cache, clear_cache
-from trans_rss import logger
+from trans_rss.logger import logger
 
+TAG = "Web_Subscribe"
 
 @catcher
 async def subscribe_del(name: str, url: str):
@@ -35,10 +36,7 @@ async def subscribe_del(name: str, url: str):
             if config.without_transmission:
                 output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
-            if del_file:
-                logger.subscribe("delete-file", name, sub.url)
-            else:
-                logger.subscribe("delete-torrent", name, sub.url)
+            logger.warn(TAG, f"subscribe_del del-torrent:True del-file:{del_file} {name} {sub.url}")
             trans_client = config.transmission.client()
             torrents = {
                 t.torrent_file: t for t in trans_client.get_torrents()}
@@ -58,10 +56,10 @@ async def subscribe_del(name: str, url: str):
                     else:
                         output.toast(
                             f"已删除对应的种子：{item.title}", color="success")
-                    logger.manual("delete", item.torrent, item.title)
+                    logger.warn(TAG, f"subscribe_del del-torrent {item.torrent} {item.title}")
             clear_cache(sub)
 
-        logger.subscribe("delete", name, sub.url)
+        logger.warn(TAG, f"subscribe_del del-sub {name} {sub.url}")
         conn.subscribe_del(name)
         output.toast(f"删除订阅 {name}", color="success")
     generate_sub_table()
@@ -70,8 +68,7 @@ async def subscribe_del(name: str, url: str):
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url,
-                         sub.include_words, sub.exclude_words)
+        logger.info(TAG, f"subscribe_all {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
         conn.subscribe(sub)
         output.toast(f"添加订阅 {sub.name}")
     actions.update_timer.update()
@@ -86,9 +83,8 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.subscribe("add", sub.name, sub.url,
-                         sub.include_words, sub.exclude_words)
-        logger.manual("mark", url, sub.name, sub.url)
+        logger.info(TAG, f"subscribe_to sub {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
+        logger.info(TAG, f"subscribe_to to {url}")
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
         conn.subscribe(sub)
@@ -98,6 +94,7 @@ async def subscribe_to(sub: Subscribe, url: str):
 
 @catcher
 async def update_manual():
+    logger.debug(TAG, "update_manual")
     actions.update_timer.update()
 
 

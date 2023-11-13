@@ -13,10 +13,11 @@ from trans_rss.common import iter_in_thread, run_in_thread
 
 from .. import actions
 from ..config import config
-from .. import logger
+from ..logger import logger
 from ..sql import Connection, Subscribe
 from .common import catcher, generate_header, button, requests_get
 
+TAG = "Web_Manage"
 
 async def refresh(): 
     await asyncio.sleep(.5)
@@ -24,7 +25,7 @@ async def refresh():
 
 
 @catcher
-async def get_id(title: str, torrent_url: str, dir:str):
+async def try_download(title: str, torrent_url: str, dir:str):
     if config.without_transmission:
         output.toast("当前为独立模式，无法操纵transmission", color='warn')
         return
@@ -36,14 +37,14 @@ async def get_id(title: str, torrent_url: str, dir:str):
         await asyncio.sleep(1)
         torrent = client.get_torrent(torrent.id)
 
-        logger.manual("download", torrent_url, title)
+        logger.info(TAG, f"try_download url {torrent_url} title {title} id {torrent.id}")
         output.toast(f"添加新任务 {title}，请手动开始")
     except TransmissionError as e:
         resp = e.response
         assert "duplicate torrent" == resp["result"]
         torrent_id = resp["arguments"]["torrent-duplicate"]["id"]
         torrent = client.get_torrent(torrent_id)
-        logger.manual("retrieve", torrent_url, title)
+        logger.info(TAG, f"try_download retrieve url {torrent_url} title {title} id {torrent.id}")
     with Connection() as conn:
         conn.download_assign(torrent_url, torrent.torrent_file)
 
@@ -56,20 +57,21 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
     match action:
         case "start":
             client.start_torrent(id)
-            logger.manual("start", torrent_url, title)
+            logger.info(TAG, f"manage_download {action} {torrent_url} {title}")
             output.toast(f"已开始下载 {title}", color="success")
         case "stop":
             client.stop_torrent(id)
-            logger.manual("stop", torrent_url, title)
+            logger.info(TAG, f"manage_download {action} {torrent_url} {title}")
             output.toast(f"已停止下载 {title}", color="success")
         case "delete":
             confirm = await input.actions(f"确定删除 {title} 吗", [button("确定", True, "danger"), button("取消", False, "success")])
             if not confirm:
                 return
             if config.without_transmission:
+                logger.warn(TAG, f"manage_download failed without transmission")
                 output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
-            logger.manual("delete", torrent_url, title)
+            logger.warn(TAG, f"manage_download {action} {torrent_url} {title}")
             with Connection() as conn:
                 conn.download_assign(torrent_url, None)
             config.transmission.client().remove_torrent(id, True)
@@ -122,14 +124,14 @@ async def manage_subscribe_page():
                     row.extend([
                         output.put_text("未链接"),
                         output.put_button(
-                            "添加/获取下载", partial(get_id, item.title, item.torrent, config.join(sub.name)))
+                            "添加/获取下载", partial(try_download, item.title, item.torrent, config.join(sub.name)))
                     ])
             else:
                 row.extend([
                     output.put_text("-"),
                     output.put_text("-"),
                     output.put_button(
-                        "添加下载", partial(get_id, item.title, item.torrent, config.join(sub.name)))
+                        "添加下载", partial(try_download, item.title, item.torrent, config.join(sub.name)))
                 ])
             table.append(row)
             if clear:

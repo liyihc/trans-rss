@@ -39,6 +39,11 @@ class Transmission(BaseModel):
             password=self.password,
             timeout=timeout)
 
+LOG_LEVEL = Literal["VERBOSE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"]
+
+import logging
+logging.addLevelName(5, "VERBOSE")
+
 class Config(BaseModel):
     transmission: Transmission = Transmission()
 
@@ -53,7 +58,9 @@ class Config(BaseModel):
     notify_failed_update: bool = True
     without_transmission: bool = True
     auto_page: bool = False
-    config_version: str = "0.2.0"
+    update_logger_level: LOG_LEVEL = "INFO"
+    logger_level: LOG_LEVEL = "INFO"
+    config_version: str = "0.2.1"
 
 
     def get_seconds(self):
@@ -151,13 +158,3 @@ if config_path.exists():
     config = Config.parse_obj(obj)
 else:
     config = Config()
-
-repeat = config.auto_start
-
-def get_repeat():
-    return repeat
-
-
-def set_repeat(value: bool):
-    global repeat
-    repeat = value

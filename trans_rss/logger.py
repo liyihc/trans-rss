@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime
 import json
 import logging
@@ -8,7 +9,7 @@ import sys
 from typing import Literal
 
 
-from .config import log_dir
+from .config import log_dir, config
 
 api = log_dir / "interactive"
 update = log_dir / "update"
@@ -27,84 +28,61 @@ def init_logger(name: str, folder: pathlib.Path, stream=sys.stdout):
         folder / "log", when="midnight", encoding='utf-8')
     handler.setFormatter(fmt)
     logger.addHandler(handler)
-    logger.addHandler(logging.StreamHandler(stream))
+    shandler = logging.StreamHandler(stream)
+    shandler.setFormatter(fmt)
+    logger.addHandler(shandler)
     return logger
 
 
-api_logger = init_logger("api", api)
-api_logger.setLevel(logging.INFO)
-update_logger = init_logger("update", update)
-update_logger.setLevel(logging.INFO)
-exception_logger = init_logger("exception", exception, sys.stderr)
-exception_logger.setLevel(logging.INFO)
-trans_rss_logger = init_logger("trans-rss", trans_rss)
-trans_rss_logger.setLevel(logging.INFO)
+_update_logger = init_logger("update", update)
+_update_logger.setLevel(config.update_logger_level)
+_logger = init_logger("trans-rss", trans_rss)
+_logger.setLevel(config.logger_level)
 
 
-def config_updated(key: str, old_value: str, new_value: str):
-    trans_rss_logger.info(
-        f"config change {key} from {old_value} to {new_value}")
+@dataclass
+class _Logger:
+    logger: logging.Logger
+
+    def _flog(self, TAG: str, content: str):
+        return f"[{TAG}] {content}"
+
+    def debug(self, TAG: str, content: str):
+        """
+        10
+        """
+        self.logger.debug(self._flog(TAG, content))
+
+    def info(self, TAG: str, content: str):
+        """
+        20
+        """
+        self.logger.info(self._flog(TAG, content))
+
+    def warn(self, TAG: str, content: str):
+        """
+        30
+        """
+        self.logger.warn(self._flog(TAG, content))
+
+    def error(self, TAG: str, content: str):
+        """
+        40
+        """
+        self.logger.error(self._flog(TAG, content))
+
+    def exception(self, TAG: str, content: str):
+        """
+        40
+        """
+        self.logger.exception(self._flog(TAG, content), stack_info=1)
+
+    def critical(self, TAG: str, content: str):
+        """
+        50
+        """
+        self.logger.critical(self._flog(TAG, content))
 
 
-def subscribe(
-        action: Literal["add", "delete", "delete-file", "delete-torrent"],
-        name: str, url: str, *others: str):
-    trans_rss_logger.info(' '.join(("subscribe", action, name, url, *others)))
-
-
-def subscribe_type(
-        action: Literal["add", "delete", "modify"],
-        name: str,
-        *others: str):
-    trans_rss_logger.info(' '.join(("subscribe-type", action, name, *others)))
-
-
-def download_add(subscribe: str, url: str):
-    trans_rss_logger.info(f"download add {subscribe} {url}")
-
-
-def manual(
-    action: Literal["download", "mark", "retrieve", "start", "stop", "delete"],
-        url: str, *others: str):
-    trans_rss_logger.info(" ".join(["manual", action, url, *others]))
-
-
-def webhook_noti_start(type: str, url: str, status_code: int):
-    api_logger.info(f"webhook notify start {type} {url} {status_code}")
-
-
-def webhook_noti_success(type: str, url: str, status_code: int):
-    api_logger.info(f"webhook notify success {type} {url} {status_code}")
-
-
-def webhook_noti_failed(type: str, url: str, status_code: int, body: bytes):
-    exception_logger.info(
-        f"webhook notify failed {type} {url} {status_code} body={body}")
-
-
-def webhook_del(type: str, url: str, enable: bool):
-    trans_rss_logger.info(f"webhook del {type} {url} {enable}")
-
-
-def webhook_change(old_type: str, old_url: str, old_enable: bool, new_type: str, new_url, new_enable: bool):
-    trans_rss_logger.info(
-        f"webhook change {old_type} {old_url} {old_enable} to {new_type} {new_url} {new_enable}")
-
-
-def webhook_add(type: str, url: str, enable: bool):
-    trans_rss_logger.info(f"webhook add {type} {url} {enable}")
-
-
-def webhook_type_del(name: str, body: dict):
-    body = json.dumps(body, ensure_ascii=False)
-    trans_rss_logger.info(f"webhook-type del {name} {body}")
-
-
-def webhook_type_json_error(name: str, body: str):
-    trans_rss_logger.info(f"webhook-type json error {name} {body}")
-
-def update_log(sub_name: str, title: str, gui: str, torrent: str):
-    update_logger.info(f'find-anime {sub_name} "{title}" {gui} {torrent}')
-
-def update_exclude(word: str, in_or_not:Literal["in", "not-in"], title: str):
-    update_logger.info(f'exclude-anime because "{word}" {in_or_not} "{title}"')
+update_logger = _Logger(_update_logger)
+logger = _Logger(_logger)

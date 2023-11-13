@@ -3,12 +3,14 @@ import json
 import re
 from .common import button, catcher
 from . import common
-from trans_rss import logger, webhook_types
+from trans_rss import webhook_types
+from trans_rss.logger import logger
 from trans_rss.webhook_types import WebhookType
 from trans_rss.config import config
 import pywebio
 from pywebio import input, output, pin, session
 
+TAG = "Web_WebhookType"
 
 @pywebio.config(title="Trans RSS 自定义webhook模板", theme="dark")
 @catcher
@@ -88,7 +90,7 @@ async def webhook_type_action(index: int, webhook_type: str, action: str):
                     [button("确定", True, "danger"), button("取消", False, "secondary")])
                 
                 if confirm:
-                    logger.webhook_type_del(webhook_type, webhook.body)
+                    logger.warn(TAG, f"webhook_type_action delete {webhook_type} {webhook.body}")
                     webhook_types.remove(webhook_type)
                     await put_webhook_types()
 
@@ -116,7 +118,7 @@ def put_webhook_type_edit(index: int, webhook_type: str):
                     except Exception as e:
                         output.toast("JSON格式错误", -1, color="error")
                         output.toast(str(e), -1, color="error")
-                        logger.webhook_type_json_error(webhook_type, new_body)
+                        logger.exception(TAG, f"put_webhook_type_edit json error {webhook_type} {new_body}")
                         return
 
                     new_webhook_type = WebhookType(

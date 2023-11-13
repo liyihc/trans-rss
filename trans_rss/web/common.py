@@ -11,12 +11,14 @@ from pywebio import *
 from trans_rss.config import config
 
 from ..common import ToastMessage, input_queue, queues
-from ..logger import exception_logger
+from ..logger import logger
+
+TAG = "Web_Common"
 
 
 def generate_header():
     with output.use_scope("header", True):
-        from trans_rss.config import get_repeat, set_repeat
+        from trans_rss.actions import update_timer
         row = [
             output.put_buttons(
                 ["订阅列表", "日志", "配置", "API page"],
@@ -32,9 +34,12 @@ def generate_header():
 
         @catcher
         async def set_repeat_refresh(value: bool):
-            set_repeat(value)
+            if value:
+                update_timer.update(5, True)
+            else:
+                update_timer.cancel()
             generate_header()
-        if get_repeat():
+        if update_timer.is_running:
             row.append(output.put_text("运行中").style('color: green'))
             row.append(output.put_button("停止", partial(
                 set_repeat_refresh, False), "danger"))
@@ -43,10 +48,6 @@ def generate_header():
             row.append(output.put_button("开始", partial(
                 set_repeat_refresh, True), "success"))
         output.put_row(row, "60% 10% 10% 10%")
-
-
-in_catcher = contextvars.ContextVar("in_catcher", default=False)
-
 
 async def loop_listener(queue: Queue[ToastMessage]):
     try:
@@ -60,23 +61,22 @@ async def loop_listener(queue: Queue[ToastMessage]):
 def catcher(func):
     @wraps(func)
     async def wrapper(*args, **kwds):
-        if in_catcher.get():
+        if session.local.in_catcher:
+            logger.debug(TAG, f"catcher enter without catcher {func}")
             return await func(*args, **kwds)
         else:
             try:
+                logger.debug(TAG, f"catcher enter with catcher {func}")
                 queue = Queue()
                 queues.append(weakref.ref(queue))
-                in_catcher.set(True)
+                session.local.in_catcher = True
                 session.run_async(loop_listener(queue))
                 return await func(*args, **kwds)
             except exceptions.SessionException:
                 raise
             except Exception as e:
-                exception_logger.exception(e, stack_info=True)
+                logger.exception(TAG, str(e))
                 output.toast(f"内部错误：{str(e)}", -1, color="error")
-                raise
-            finally:
-                in_catcher.set(False)
 
     return wrapper
 

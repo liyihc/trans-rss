@@ -1,17 +1,23 @@
 import asyncio
+import logging
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue
 from threading import Thread
+from time import sleep
 from traceback import format_exc
 from types import NoneType
-from typing import Any, AsyncGenerator, Callable, Dict, Generator, Iterable, List, Literal, TypeVar, Union
-import logging
-import weakref
+from typing import (Any, AsyncGenerator, Callable, Dict, Generator, Iterable,
+                    List, Literal, TypeVar, Union)
 
 from pydantic import BaseModel
 
+from trans_rss.logger import logger
+from trans_rss.config import config
+
+TAG = "Common"
 
 class SubStatus(BaseModel):
     title: str
@@ -131,6 +137,7 @@ def start_emit():
         invalid = []
         while True:
             msg = input_queue.get()
+            logger.debug(TAG, f"start_emit queue {queues}")
             for index, ref in enumerate(queues):
                 queue = ref()
                 if queue is not None and queue.qsize() < 20:
@@ -141,6 +148,22 @@ def start_emit():
             if invalid:
                 list(map(queues.pop, reversed(invalid)))
             invalid.clear()
+            sleep(.5)
     global emit_thread
     emit_thread = Thread(target=emitter, daemon=True)
     emit_thread.start()
+
+v_thread: Thread = None
+
+def start_v():
+    def v():
+        while True:
+            emit_message(f"{datetime.now().replace(microsecond=0)} | peers {len(queues)}")
+            sleep(5)
+    global v_thread
+    v_thread = Thread(target=v, daemon=True)
+    v_thread.start()
+
+
+if config.logger_level == "VERBOSE":
+    start_v()

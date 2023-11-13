@@ -1,6 +1,8 @@
 from sqlite3 import Connection
 from packaging.version import Version
-from ..logger import trans_rss_logger, exception_logger
+from ..logger import logger
+
+TAG = "Sql_Updates"
 
 version = "0.5.11"
 
@@ -43,12 +45,12 @@ def update(conn: Connection):
     for to_version, updater in updaters:
         if to_version > version:
             try:
-                trans_rss_logger.info(
-                    f"update sql from {version} to {to_version}")
+                logger.warn(
+                    TAG, f"update sql from {version} to {to_version}")
                 with conn:
                     updater(conn)
                     conn.execute(
                         'REPLACE INTO infos VALUES("version",?)', (str(to_version), ))
             except Exception as e:
-                exception_logger.exception(str(e), stack_info=True)
+                logger.exception(TAG, str(e))
                 raise
