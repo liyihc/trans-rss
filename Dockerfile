@@ -5,7 +5,7 @@ WORKDIR /app
 ADD requirements.txt /app/
 
 RUN pip install --upgrade --no-cache-dir \
-     -r /app/requirements.txt
+     -r /app/requirements.txt -i https://mirror.sjtu.edu.cn/pypi/web/simple
 
 ADD ./trans_rss /app/trans_rss
 
