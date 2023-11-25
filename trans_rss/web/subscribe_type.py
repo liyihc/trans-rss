@@ -12,7 +12,7 @@ from pywebio import input, output, session, pin
 
 from trans_rss import subscribe_types
 from trans_rss.logger import logger
-from trans_rss.common import run_in_thread
+from trans_rss.common import executor
 
 from .common import button, catcher, requests_get
 from . import common
@@ -149,7 +149,7 @@ async def put_edit_subscribe_type(hostname: str):
                 url: str = await pin.pin["example-url"]
                 url = url.strip()
                 try:
-                    resp = await run_in_thread(partial(requests_get, url))
+                    resp = await executor.run_in_thread(partial(requests_get, url))
                 except:
                     output.toast(f"无法获取网页 {url}", color="error")
                     return
@@ -202,7 +202,7 @@ async def put_edit_subscribe_type(hostname: str):
             with output.use_scope("output", True):
                 url = await pin.pin["example-url"]
                 try:
-                    resp = await run_in_thread(partial(requests_get, url))
+                    resp = await executor.run_in_thread(partial(requests_get, url))
                 except:
                     output.toast(f"无法获取网页 {url}", color="error")
                     return

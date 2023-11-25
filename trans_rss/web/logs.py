@@ -1,5 +1,5 @@
 from pathlib import Path
-from pywebio import *
+from pywebio import input, session, output, config
 from ..logger import update, trans_rss, logger
 
 from .common import generate_header, catcher

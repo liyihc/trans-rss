@@ -1,4 +1,3 @@
-import asyncio
 from functools import partial
 from typing import Literal
 import pywebio
@@ -6,7 +5,7 @@ from pywebio import input, output, session
 
 from .. import actions
 from ..sql import Connection, Subscribe
-from ..common import SubStatus, iter_in_thread, status, get_status_error_msg
+from ..common import executor, sub_status
 from ..config import config
 
 from .common import button, generate_header, catcher
@@ -14,6 +13,7 @@ from .manage import subscribe_and_cache, clear_cache
 from trans_rss.logger import logger
 
 TAG = "Web_Subscribe"
+
 
 @catcher
 async def subscribe_del(name: str, url: str):
@@ -36,7 +36,8 @@ async def subscribe_del(name: str, url: str):
             if config.without_transmission:
                 output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
-            logger.warn(TAG, f"subscribe_del del-torrent:True del-file:{del_file} {name} {sub.url}")
+            logger.warn(
+                TAG, f"subscribe_del del-torrent:True del-file:{del_file} {name} {sub.url}")
             trans_client = config.transmission.client()
             torrents = {
                 t.torrent_file: t for t in trans_client.get_torrents()}
@@ -56,7 +57,8 @@ async def subscribe_del(name: str, url: str):
                     else:
                         output.toast(
                             f"已删除对应的种子：{item.title}", color="success")
-                    logger.warn(TAG, f"subscribe_del del-torrent {item.torrent} {item.title}")
+                    logger.warn(
+                        TAG, f"subscribe_del del-torrent {item.torrent} {item.title}")
             clear_cache(sub)
 
         logger.warn(TAG, f"subscribe_del del-sub {name} {sub.url}")
@@ -68,7 +70,8 @@ async def subscribe_del(name: str, url: str):
 @catcher
 async def subscribe_all(sub: Subscribe):
     with Connection() as conn:
-        logger.info(TAG, f"subscribe_all {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
+        logger.info(
+            TAG, f"subscribe_all {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
         conn.subscribe(sub)
         output.toast(f"添加订阅 {sub.name}")
     actions.update_timer.update()
@@ -83,7 +86,8 @@ def download_url(url: str):
 @catcher
 async def subscribe_to(sub: Subscribe, url: str):
     with Connection() as conn:
-        logger.info(TAG, f"subscribe_to sub {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
+        logger.info(
+            TAG, f"subscribe_to sub {sub.name} {sub.url} {sub.include_words} {sub.exclude_words}")
         logger.info(TAG, f"subscribe_to to {url}")
         conn.download_add(url)
         output.toast(f"添加订阅 {sub.name}")
@@ -104,8 +108,8 @@ def generate_sub_table():
         for sub in conn.subscribe_list():
             row = [output.put_link(
                 sub.name, f"/web/?app=subscribe-manage&name={sub.name}")]
-            if sub.name in status:
-                ss = status[sub.name]
+            ss = sub_status.status_get(sub.name)
+            if ss is not None:
                 download = conn.download_get(ss.torrent)
                 row.extend([
                     output.put_link(ss.title, ss.link, new_window=True),
@@ -123,7 +127,7 @@ def generate_sub_table():
             table.append(row)
 
         output.put_table(table)
-        msg = get_status_error_msg()
+        msg = sub_status.get_status_error_msg()
         if msg:
             output.put_error(msg)
 
@@ -172,7 +176,7 @@ async def subscribe_page():
         sub.exclude_words = sub.exclude_words.strip()
         sub_all = partial(subscribe_all, sub)
         output.put_button("全部订阅", onclick=sub_all)
-        async for item in iter_in_thread(actions.subscribe, sub):
+        async for item in executor.iter_in_thread(actions.subscribe, sub):
             if conn.download_exist(item.torrent):
                 output.put_row(
                     [

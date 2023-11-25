@@ -1,16 +1,15 @@
 import asyncio
-import contextvars
 import weakref
 from functools import partial, wraps
 from queue import Queue
 from typing import Literal
 
 import requests
-from pywebio import *
+from pywebio import output, session, exceptions
 
 from trans_rss.config import config
 
-from ..common import ToastMessage, input_queue, queues
+from ..common import toast_message
 from ..logger import logger
 
 TAG = "Web_Common"
@@ -49,7 +48,8 @@ def generate_header():
                 set_repeat_refresh, True), "success"))
         output.put_row(row, "60% 10% 10% 10%")
 
-async def loop_listener(queue: Queue[ToastMessage]):
+
+async def loop_listener(queue: Queue[toast_message.ToastMessage]):
     try:
         while True:
             msg = await asyncio.to_thread(queue.get)
@@ -68,7 +68,7 @@ def catcher(func):
             try:
                 logger.debug(TAG, f"catcher enter with catcher {func}")
                 queue = Queue()
-                queues.append(weakref.ref(queue))
+                toast_message.queues.append(weakref.ref(queue))
                 session.local.in_catcher = True
                 session.run_async(loop_listener(queue))
                 return await func(*args, **kwds)
