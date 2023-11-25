@@ -75,7 +75,7 @@ class _Logger:
         """
         40
         """
-        self.logger.exception(self._flog(TAG, content), stack_info=1)
+        self.logger.exception(self._flog(TAG, content))
 
     def critical(self, TAG: str, content: str):
         """
