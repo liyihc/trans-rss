@@ -11,13 +11,14 @@ import pywebio
 from pywebio import input, output, session, pin
 
 from trans_rss import subscribe_types
-from trans_rss import logger
+from trans_rss.logger import logger
 from trans_rss.common import run_in_thread
 
 from .common import button, catcher, requests_get
 from . import common
 from trans_rss.subscribe_types import Keys, Actions, SubscribeType, iter_node, iter_xml, iter_plain
 
+TAG = "Web_SubscribeType"
 
 def iter_text(node: Element):
     for child, path in iter_node(node):
@@ -97,7 +98,7 @@ async def put_main():
                     return
                 else:
                     output.toast(f'覆盖内置网址{hostname}', color="warn")
-            logger.subscribe_type("add", hostname)
+            logger.info(TAG, f"type-add {hostname}")
             subscribe_types.add(SubscribeType(
                 builtin=False,
                 hostname=hostname,
@@ -119,8 +120,7 @@ async def subscribe_type_action(hostname: str, action: str):
                     button("取消", False, "secondary")
                 ])
             if confirm:
-                logger.subscribe_type("delete", hostname,
-                                      subscribe_types.get(hostname).json())
+                logger.warn(TAG, f"delete {hostname} {subscribe_types.get(hostname).json()}")
                 subscribe_types.remove(hostname)
                 await put_main()
 
@@ -192,7 +192,7 @@ async def put_edit_subscribe_type(hostname: str):
             await input.actions("", [button("确认", True)])
 
             new_sub_type.builtin = False
-            logger.subscribe_type("modify", hostname, new_sub_type.json())
+            logger.info(TAG, f"modify {hostname} {new_sub_type.json()}")
             subscribe_types.add(new_sub_type)
             await put_edit_subscribe_type(hostname)
             output.clear_scope("output")

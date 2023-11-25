@@ -1,34 +1,33 @@
-from functools import partial
+from threading import Thread
 from traceback import format_exc
 from typing import List
 
 import pywebio
 from fastapi import FastAPI, Request, Response, responses, staticfiles
-from fastapi_utils.tasks import repeat_every
-from pydantic import BaseModel
 
-from trans_rss.common import iter_in_thread, run_in_thread
+from trans_rss.common import iter_in_thread, run_in_thread, set_status_error_msg, start_emit
 
 from . import actions
-from .config import config, get_repeat, set_repeat, version
-from .logger import api_logger, exception_logger, update_logger
+from .config import config, version
+from .logger import logger
 from .sql import Connection, Subscribe
 from .web import routes as web_routes
 
 app = FastAPI(title="Trans RSS", version=version)
+
+TAG = "App"
 
 
 @app.middleware("http")
 async def log_api(request: Request, call_next):
     try:
         response: Response = await call_next(request)
-        api_logger.info(
-            f"{request.method} {response.status_code}, {request.client}, {request.url}")
+        logger.debug(
+            TAG, f"log_api {request.method} {response.status_code}, {request.client}, {request.url}")
         return response
     except Exception as e:
-        api_logger.info(
-            f"{request.method} {500}, {request.client.host}, {request.url}")
-        exception_logger.exception(str(e), stack_info=True)
+        logger.exception(
+            TAG, f"log_api {request.method} {500}, {request.client.host}, {request.url}")
         return responses.JSONResponse(
             {"msg": str(e), "stack": format_exc()}, 500)
 
@@ -48,15 +47,20 @@ app.mount("/web", webio_app)
 @app.on_event("startup")
 async def test_transmission():
     config.refresh()
+    start_emit()
     with Connection() as conn:
         pass  # test db
     if not config.without_transmission:
-        try:  # tes transmission
+        try:  # test transmission
             client = config.transmission.client()
             client.get_torrents(timeout=2)
         except Exception as e:
-            exception_logger.exception(str(e), stack_info=True)
+            logger.exception(TAG, str(e))
             config.without_transmission = True
+            actions.update_timer.cancel()
+            set_status_error_msg("连接不上Transmission，停止")
+    if config.auto_start:
+        actions.update_timer.update(5, True)
 
 
 @app.get("/api/test-sql")
@@ -117,23 +121,3 @@ async def update():
 @app.post("/api/test_webhooks")
 async def test_webhooks():
     await run_in_thread(actions.broadcast_test)
-
-
-async def repeat_update():
-    if get_repeat():
-        try: # catch exception to avoid tries
-            update_logger.info("routine task start")
-            async for _ in actions.update():
-                pass
-        except:
-            pass
-    else:
-        update_logger.info("routine task skip")
-
-app.on_event("startup")(
-    repeat_every(seconds=config.subscribe_minutes * 60, wait_first=True)(
-        repeat_update))
-
-app.on_event("startup")(
-    repeat_every(seconds=30, wait_first=True, max_repetitions=1)(
-        repeat_update))

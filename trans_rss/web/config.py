@@ -10,7 +10,7 @@ import requests
 from pywebio import input, output, pin, session
 
 from trans_rss import webhook_types
-from trans_rss import logger
+from trans_rss.logger import logger
 from trans_rss.common import run_in_thread
 from trans_rss.sql.sql import Connection
 from trans_rss.web.subscribe_type import requests_get
@@ -18,6 +18,8 @@ from trans_rss.web.subscribe_type import requests_get
 from ..config import Config, Transmission, Webhook, config
 from . import common
 from .common import button, catcher
+
+TAG = "Web_Config"
 
 
 @catcher
@@ -131,10 +133,12 @@ def webhook_noti(type: str, url: str, body: bytes):
         resp = requests.post(
             url, headers={"Content-Type": "application/json"}, data=body, timeout=3)
         if 200 <= resp.status_code <= 299:
-            logger.webhook_noti_success(type, url, resp.status_code)
+            logger.info(
+                TAG, f"webhook_noti success {type} {url} {resp.status_code}")
             return True, resp.text
         else:
-            logger.webhook_noti_failed(type, url, resp.status_code, body)
+            logger.info(
+                TAG, f"webhook_noti failed {type} {url} {resp.status_code}")
             return False, resp.text
     except Exception as e:
         return False, str(e)
@@ -161,7 +165,8 @@ async def webhook_action(index: int, action: str):
         case "delete":
             webhook = local_webhooks.pop(index)
             if url:
-                logger.webhook_del(type, url, webhook.enabled)
+                logger.warn(
+                    TAG, f"webhook_action delete {type} {url} {webhook.enabled}")
                 output.toast(
                     f"webhook删除{type} {url} {webhook.enabled}（可通过重置还原此删除）")
             await generate_webhooks()
@@ -185,13 +190,15 @@ async def webhooks_action(action: str):
                 url = await pin.pin[f"webhook_url_{index}"]
                 if webhook.type != type or webhook.url != url or webhook.enabled != enabled:
                     if webhook.url:
-                        logger.webhook_change(
-                            webhook.type, webhook.url, webhook.enabled,
-                            type, url, enabled)
+                        logger.info(
+                            TAG, f"webhooks_action apply old {webhook.type} {webhook.url} {webhook.enabled}")
+                        logger.info(
+                            TAG, f"webhooks_action apply new {type} {url} {enabled}")
                         output.toast(
                             f"webhook更新，从{webhook.type} {webhook.url} {webhook.enabled}到{type} {url} {enabled}")
                     else:
-                        logger.webhook_add(type, url, enabled)
+                        logger.info(
+                            TAG, f"webhooks_action apply add {type} {url} {enabled}")
                         output.toast(f"webhook添加{type} {url} {enabled}")
                 webhook.type = type
                 webhook.enabled = enabled
@@ -253,10 +260,9 @@ async def wait_update_configs():
     sub_data["password"] = sub_data["password"] or None
     data["transmission"] = sub_data
 
-
     new_config = Config(**data)
 
-    def update_diff(config: BaseModel, new_config: BaseModel, data: dict, prefix: str=""):
+    def update_diff(config: BaseModel, new_config: BaseModel, data: dict, prefix: str = ""):
         for key in data.keys():
             value = getattr(config, key)
             new_value = getattr(new_config, key)
@@ -267,7 +273,8 @@ async def wait_update_configs():
                     new_prefix = f"{key}."
                 update_diff(value, new_value, data[key], new_prefix)
             elif value != new_value:
-                logger.config_updated(key, value, new_value)
+                logger.info(
+                    TAG,  f"config change {key} from {value} to {new_value}")
                 output.toast(f'更新配置{prefix}{key}从"{value}"至"{new_value}"')
                 setattr(config, key, new_value)
     update_diff(config, new_config, data)
