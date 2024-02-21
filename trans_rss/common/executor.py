@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from queue import Queue
@@ -7,6 +6,9 @@ from traceback import format_exc
 from types import NoneType
 from typing import Any, AsyncGenerator, Callable, Generator, Iterable, TypeVar
 
+from trans_rss.logger import logger
+
+TAG = "Executor"
 
 T = TypeVar("T")
 
@@ -24,9 +26,7 @@ async def iter_in_thread(func: Callable[..., Generator[T, Any, Any]], *args, **k
                 q.put(item)
             q.put(None)
         except Exception as e:
-            logger = logging.getLogger("exception")
-            logger.exception(
-                "exception in iter_in_thread\n%s", str(e), stack_info=True)
+            logger.exception(TAG, f"exception in iter_in_thread\n{e}")
             q.put(_ThreadFuncError(e.args, format_exc()))
 
     q = Queue()
@@ -50,9 +50,7 @@ async def run_in_thread(func: Callable[..., T], *args, **kwds) -> T:
         try:
             return func(*args, **kwds)
         except Exception as e:
-            logger = logging.getLogger("exception")
-            logger.exception(
-                f"exception in iter_in_thread\n%s", str(e), stack_info=True)
+            logger.exception(TAG, f"exception in iter_in_thread\n{e}")
             return _ThreadFuncError(e.args, format_exc())
     ret = await asyncio.to_thread(new_func)
     if isinstance(ret, _ThreadFuncError):
