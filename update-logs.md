@@ -1,5 +1,23 @@
 # update logs
 
+## 0.5.15
+
+- refactor
+
+## 0.5.14
+
+- use global message
+
+## 0.5.13
+
+- bug fix
+  - missing keywords
+  - delete
+
+## 0.5.12
+
+- add include & exclude words
+
 ## 0.5.11 2023-06-30
 
 - add include & exclude words for subscribe
