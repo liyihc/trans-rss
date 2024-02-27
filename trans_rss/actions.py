@@ -14,7 +14,8 @@ from .sql import Subscribe, Connection
 from .config import config
 from . import webhook_types
 from .logger import logger, update_logger
-from .common import emit_message, get_status_error_msg, iter_in_thread, run_in_thread, set_status_error_msg, status_error, status_update, status
+from .common import executor, sub_status
+from .common.toast_message import emit_message
 
 TAG = "Actions"
 
@@ -149,7 +150,7 @@ lock = threading.Lock()
 
 def _update_one(sub: Subscribe):
     with lock, Connection() as conn, ThreadPool() as pool:
-        update_logger.info(TAG, f"udpate name: {sub.name} url: {sub.url}")
+        update_logger.info(TAG, f"update name: {sub.name} url: {sub.url}")
 
         emit_message(f"正在查找 {sub.name}")
 
@@ -157,7 +158,7 @@ def _update_one(sub: Subscribe):
         l: List[RSSParseResult] = []
         for item in subscribe(sub):
             if first:
-                status_update(sub.name, item.title, item.gui, item.torrent)
+                sub_status.status_update(sub.name, item.title, item.gui, item.torrent)
                 first = False
             if conn.download_exist(item.torrent):
                 update_logger.info(TAG,
@@ -210,7 +211,7 @@ async def update():
             for sub in subs:
                 for retry in reversed(range(3)):
                     try:
-                        async for name, item in iter_in_thread(partial(_update_one, sub)):
+                        async for name, item in executor.iter_in_thread(partial(_update_one, sub)):
                             yield name, item
                             cnt += 1
                         updated.add(sub.name)
@@ -225,25 +226,26 @@ async def update():
                 emit_message(f"共添加{cnt}个新下载项", color="success")
             else:
                 emit_message(f"未找到有更新的订阅", color="success")
-            if get_status_error_msg():
+            if sub_status.get_status_error_msg():
                 try:
-                    await run_in_thread(broadcast_recovery)
+                    await executor.run_in_thread(broadcast_recovery)
                 except:
                     pass
-            set_status_error_msg("")
+            sub_status.set_status_error_msg("")
         except Exception as e:
             errors = names.difference(updated)
             for name in errors:
-                status_error(name)
-            if not get_status_error_msg() and config.notify_failed_update:  # skip if notified
+                sub_status.status_error(name)
+            if not sub_status.get_status_error_msg() and config.notify_failed_update:  # skip if notified
                 try:
-                    await run_in_thread(broadcast_error, error_sub.name, error_sub.url)
+                    await executor.run_in_thread(broadcast_error, error_sub.name, error_sub.url)
                 except:
                     pass
-            set_status_error_msg(error_msg)
+            sub_status.set_status_error_msg(error_msg)
             logger.exception(TAG, str(e))
             emit_message(f"订阅中出现错误 {e}", duration=30, color="error")
         finally:
+            status = sub_status._status
             for k in list(status.keys()):
                 if k not in names:
                     status.pop(k)
@@ -264,14 +266,14 @@ class _UpdateTimer:
         self._update_timer.start()
 
     def _timeout(self):
-        async def afunc():
+        async def async_func():
             try:
                 update_logger.info(TAG, "routine task start")
                 async for _ in update():
                     pass
             except:
                 pass
-        asyncio.run(afunc())
+        asyncio.run(async_func())
         if self._running:
             self._update_timer = None
             self.update(config.subscribe_minutes*60, repeat=True)

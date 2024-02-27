@@ -1,15 +1,14 @@
 import asyncio
 from datetime import datetime, timedelta
 from functools import partial
-from typing import Dict, List, Literal, Tuple
-import requests
+from typing import Dict, List, Literal
 
 from transmission_rpc import TransmissionError
 import pywebio
 from pydantic import BaseModel
 from pywebio import input, output, session
 
-from trans_rss.common import iter_in_thread, run_in_thread
+from trans_rss.common import executor
 
 from .. import actions
 from ..config import config
@@ -31,7 +30,7 @@ async def try_download(title: str, torrent_url: str, dir:str):
         return
     client = config.transmission.client()
     try:
-        resp = await run_in_thread(requests_get, torrent_url)
+        resp = await executor.run_in_thread(requests_get, torrent_url)
         torrent = client.add_torrent(resp.content, download_dir=dir, paused=True)
 
         await asyncio.sleep(1)
@@ -68,7 +67,7 @@ async def manage_download(title: str, id: int, torrent_url: str, action: Literal
             if not confirm:
                 return
             if config.without_transmission:
-                logger.warn(TAG, f"manage_download failed without transmission")
+                logger.warn(TAG, "manage_download failed without transmission")
                 output.toast("当前为独立模式，无法操纵transmission", color='warn')
                 return
             logger.warn(TAG, f"manage_download {action} {torrent_url} {title}")
@@ -161,7 +160,7 @@ async def subscribe_and_cache(sub: Subscribe):
                 yield False, ret
     cache = Cache(dt=now, rets=[])
     if need_sub:
-        async for ret in iter_in_thread(actions.subscribe, sub):
+        async for ret in executor.iter_in_thread(actions.subscribe, sub):
             cache.rets.append(ret)
             yield True, ret
         caches[sub.url] = cache

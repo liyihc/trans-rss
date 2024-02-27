@@ -1,7 +1,7 @@
 import asyncio
 from copy import deepcopy
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from pydantic import BaseModel
 
 import pytz
@@ -11,11 +11,11 @@ from pywebio import input, output, pin, session
 
 from trans_rss import webhook_types
 from trans_rss.logger import logger
-from trans_rss.common import run_in_thread
+from trans_rss.common import executor
 from trans_rss.sql.sql import Connection
 from trans_rss.web.subscribe_type import requests_get
 
-from ..config import Config, Transmission, Webhook, config
+from ..config import Config, Webhook, config
 from . import common
 from .common import button, catcher
 
@@ -30,7 +30,7 @@ async def test_transmission():
         output.toast(f"Transmission共有{len(torrents)}个种子正在下载")
         if torrents:
             output.toast(f"Transmission下载的某个种子为{torrents[0].name}")
-        output.toast(f"Transmission连接成功", color="success")
+        output.toast("Transmission连接成功", color="success")
 
     except Exception as e:
         output.toast(f"Transmission连接失败 {str(e)}", -1, color='error')
@@ -48,7 +48,7 @@ async def test_httpproxy():
                 [sub.url for sub in conn.subscribe_list()]
             )
         try:
-            resp = await run_in_thread(requests_get, url)
+            resp = await executor.run_in_thread(requests_get, url)
             if 200 <= resp.status_code <= 299:
                 output.toast("连接成功", color="success")
         except:
@@ -158,7 +158,7 @@ async def webhook_action(index: int, action: str):
             body = webhook_types.format(
                 type, "测试 webhook 标题", "测试 webhook 订阅", "https://github.com/liyihc/trans-rss")
             try:
-                msg = await run_in_thread(partial(webhook_noti, type, url, body))
+                msg = await executor.run_in_thread(partial(webhook_noti, type, url, body))
                 output.toast(f"通知成功: {type} {url}\n{msg}", color="success")
             except Exception as e:
                 output.toast(f"通知失败: {url}\n{msg}", duration=0, color="error")
@@ -262,9 +262,9 @@ async def wait_update_configs():
 
     new_config = Config(**data)
 
-    def update_diff(config: BaseModel, new_config: BaseModel, data: dict, prefix: str = ""):
+    def update_diff(old_config: BaseModel, new_config: BaseModel, data: dict, prefix: str = ""):
         for key in data.keys():
-            value = getattr(config, key)
+            value = getattr(old_config, key)
             new_value = getattr(new_config, key)
             if isinstance(value, BaseModel):
                 if prefix:
@@ -276,7 +276,7 @@ async def wait_update_configs():
                 logger.info(
                     TAG,  f"config change {key} from {value} to {new_value}")
                 output.toast(f'更新配置{prefix}{key}从"{value}"至"{new_value}"')
-                setattr(config, key, new_value)
+                setattr(old_config, key, new_value)
     update_diff(config, new_config, data)
     config.refresh()
 

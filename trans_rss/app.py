@@ -5,7 +5,7 @@ from typing import List
 import pywebio
 from fastapi import FastAPI, Request, Response, responses, staticfiles
 
-from trans_rss.common import iter_in_thread, run_in_thread, set_status_error_msg, start_emit
+from trans_rss.common import executor, sub_status, toast_message
 
 from . import actions
 from .config import config, version
@@ -37,17 +37,17 @@ def web():
     return responses.RedirectResponse("/web?app=sub-list")
 
 
-webio_app = FastAPI(routes=web_routes)
-webio_app.mount(
+pywebio_app = FastAPI(routes=web_routes)
+pywebio_app.mount(
     "/static", staticfiles.StaticFiles(directory=pywebio.STATIC_PATH), name="static")
 
-app.mount("/web", webio_app)
+app.mount("/web", pywebio_app)
 
 
 @app.on_event("startup")
 async def test_transmission():
     config.refresh()
-    start_emit()
+    toast_message.start_emit()
     with Connection() as conn:
         pass  # test db
     if not config.without_transmission:
@@ -58,7 +58,7 @@ async def test_transmission():
             logger.exception(TAG, str(e))
             config.without_transmission = True
             actions.update_timer.cancel()
-            set_status_error_msg("连接不上Transmission，停止")
+            sub_status.set_status_error_msg("连接不上Transmission，停止")
     if config.auto_start:
         actions.update_timer.update(5, True)
 
@@ -71,21 +71,21 @@ async def test_sql(sql_statement: str):
 
 
 @app.post("/api/subscribe", response_model=List[actions.RSSParseResult])
-async def subscribe(name: str, url: str):
+async def post_subscribe(name: str, url: str):
     with Connection() as conn:
         conn.subscribe(Subscribe(name=name, url=url))
         sub = Subscribe(name=name, url=url)
-        return [item async for item in iter_in_thread(actions.subscribe, sub)]
+        return [item async for item in executor.iter_in_thread(actions.subscribe, sub)]
 
 
 @app.delete("/api/subscribe")
-async def subscribe(name: str):
+async def del_subscribe(name: str):
     with Connection() as conn:
         conn.subscribe_del(name)
 
 
 @app.get("/api/subscribe", response_model=List[Subscribe])
-async def subscribe():
+async def get_subscribe():
     with Connection() as conn:
         return conn.subscribe_list()
 
@@ -98,7 +98,7 @@ async def mark_download(torrent: str):
 
 @app.post("/api/start")
 async def start():
-    set_repeat(True)
+    actions.update_timer.update(repeat=True)
     ret = []
     async for item in actions.update():
         ret.append(item)
@@ -107,7 +107,7 @@ async def start():
 
 @app.post("/api/stop")
 async def stop():
-    set_repeat(False)
+    actions.update_timer.cancel()
 
 
 @app.post("/api/manual_update")
@@ -120,4 +120,4 @@ async def update():
 
 @app.post("/api/test_webhooks")
 async def test_webhooks():
-    await run_in_thread(actions.broadcast_test)
+    await executor.run_in_thread(actions.broadcast_test)
